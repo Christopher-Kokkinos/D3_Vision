@@ -2,7 +2,9 @@
 
 Windows 10/11 x64 desktop overlay for Diablo III, built with .NET 8 and WPF.
 
-**[Download the v1.0.0 Windows installer](https://github.com/Christopher-Kokkinos/D3_Vision/releases/tag/v1.0.0)**
+**[Download the v1.1.0 Windows installer](https://github.com/Christopher-Kokkinos/D3_Vision/releases/tag/v1.1.0)**
+
+**Stricken is pending the next fix:** the included counter is experimental; live increments and exact target stacks are not validated. See [v1.1.0 release notes](docs/releases/v1.1.0.md).
 
 Close D3Vision before installing or updating. The installer includes the .NET runtime,
 adds Start-menu shortcuts, and preserves settings and history. It is unsigned;
@@ -42,7 +44,7 @@ Windows OCR is officially supported for desktop applications **with package iden
 
 ### Windows installer
 
-The standard installer is `artifacts/installers/D3Vision-Setup-1.0.0-win-x64.exe`.
+The standard installer is `artifacts/installers/D3Vision-Setup-1.1.0-win-x64.exe`.
 Close the overlay before running it. It supports Intel/AMD x64 Windows 10
 version 2004 (build 19041) or newer and Windows 11, includes the .NET 8 Desktop
 Runtime, and installs for the current user without elevation. Start-menu shortcuts,
@@ -82,7 +84,7 @@ The package contains a self-contained x64 publish. Install only after signing wi
 
 ### Hover-to-toggle automatic skill casting
 
-With `VisualRead` selected, skills calibrated, settings closed and the overlay locked/click-through, hover over a skill icon (or its overlay badge) continuously for **three seconds**. A small fill indicator shows the dwell. A green outline and `AUTO` mark an armed slot. Move away to let it cast. Leave and hover again for three seconds to turn that slot off. Keeping the pointer there toggles only once; moving to another slot restarts the dwell timer. Hovering over any skill pauses dispatch while you change toggles.
+With `VisualRead` selected, skills calibrated, settings closed and the overlay locked/click-through, hover over its calibrated in-game skill artwork continuously for **three seconds**. A small fill indicator shows the dwell. A green outline and `AUTO` mark an armed slot. Move away to let it cast. Leave and hover again for three seconds to turn that slot off. Old calibrations must be saved again to record the capture mode. Hover tests use the latest physical capture bounds, reject overlapping boxes and changed aspect ratios/capture modes/monitors, and never use movable overlay badges. Keeping the pointer there toggles only once; moving to another slot restarts the dwell timer. Hovering over any skill pauses dispatch while you change toggles.
 
 Armed slots send a short 1–4/LMB/RMB press only when the visual reader reports confirmed ready. Unknown, stale, inferred-zero and cooling readings do not trigger casts. The system sends at most one global attempt every 200 ms and one attempt per skill per second. Ready skills rotate fairly. Mouse casts use the existing cursor position; the cursor is never moved. Held keys/buttons and modifiers are left alone. Auto-cast requires Diablo III in the foreground and the pointer inside its window.
 
@@ -90,17 +92,17 @@ Armed slots send a short 1–4/LMB/RMB press only when the visual reader reports
 
 ### HUD placement
 
-The new preset uses a 26-pixel stats row at the top, an unboxed rift percentage on the right, six countdown badges over the skill bar, and four colour-coded element strips beside party portraits. Muted bronze text and dark shadows replace the large panels. The preset is applied once to existing settings; later launches preserve your calibrated positions. **Reset to game HUD layout** restores the starting alignment.
+The new preset uses a 26-pixel stats row at the top, an unboxed rift percentage on the right, six countdown badges over the skill bar, and four live portrait buff frames. Muted bronze text and dark shadows replace the large panels. The preset is applied once to existing settings; later launches preserve your calibrated positions. **Reset to game HUD layout** restores the starting alignment.
 
 Press F11 to reveal editing outlines. Drag each widget's top edge to reposition it and its lower-right corner to resize it. This is a starting alignment for windowed/borderless play: calibrate it for the game's resolution and UI scale. Screen anchors keep the top row and bottom skill group aligned when the monitor resolution changes.
 
-**Automatic visual skill reading** is now the default (`VisualRead`). Press F12, wait until the skills are ready, then choose **Calibrate ready skill icons...**. In the captured image, select a slot and draw a box around its square skill artwork, excluding its frame and key label. Repeat for the other slots and save. Capture coordinates are independent of where you drag the overlay badges. Recalibrate after changing skills, UI scale, aspect ratio or capture mode. Normalised coordinates support resolution changes with the same aspect ratio.
+**Automatic visual skill reading** is now the default (`VisualRead`). Press F12, wait until the skills are ready, then choose **Calibrate ready skill icons...**. In the captured image, select a slot and draw a box around its square skill artwork, excluding its frame and key label. Repeat for the other slots and save. In locked VisualRead mode, countdowns, hover progress and AUTO outlines now anchor directly to the six calibrated artwork boxes; movable display badges are only used for editing/manual fallback. Recalibrate after changing skills, UI scale, aspect ratio or capture mode. Normalised coordinates support resolution changes with the same aspect ratio.
 
 The reader compares a calibrated ready icon with its current shaded sector at up to 10 Hz. It estimates seconds from the observed rate of sweep movement, rather than a configured duration or key press. `~` marks inferred seconds; `?` means uncalibrated, unreadable, stale, or not enough movement to infer a rate. Long cooldowns can require several seconds of observations. Two ready frames confirm a reset. Noisy non-radial changes are rejected, and missing capture becomes unknown after one second. Calibration rejects icons with insufficient bright detail. This is an experimental visual estimate, **not exact game telemetry**: animations, lighting, charges, icon changes and very small/low-contrast skills can cause errors. A shaded fraction alone does not reveal exact remaining seconds. Only synthetic sweep fixtures have been validated; live Diablo III accuracy still needs testing. Visual reading does not require Windows text OCR or package identity.
 
-`InputEstimate` retains the previous manual fallback. Configure effective durations for 1–4/LMB/RMB; 0 disables a timer. Key/button input starts estimates only when Diablo III is foreground and continues to reach the game. Holding a key does not restart an active countdown. Click a badge while unlocked to test it. Configured durations and input starts are ignored in `VisualRead`. **Clear skill countdowns** resets both modes. No changes were made to the visual-only party bars.
+`InputEstimate` retains the previous manual fallback. Configure effective durations for 1–4/LMB/RMB; 0 disables a timer. Key/button input starts estimates only when Diablo III is foreground and continues to reach the game. Holding a key does not restart an active countdown. Click a badge while unlocked to test it. Configured durations and input starts are ignored in `VisualRead`. **Clear skill countdowns** resets both modes.
 
-Party bars are **visual layout only**, as requested. Choose each player's name and class, position the strip beside their portrait, and disable unused strips. The class-specific element segments have no active-element indicator or simulated timing. Their order follows [Blizzard's Convention of Elements description](https://eu.diablo3.blizzard.com/en-us/item/convention-of-elements-P2_Unique_Ring_04). Compact XP/hour uses K/M/B abbreviations.
+**Live portrait indicators:** F12 enables live buffs and selects `PortraitGlow` (default) or `RingIcon` for Convention of Elements. The glow follows the observed active element, without a simulated cycle. Squirt uses a necklace symbol: gold with stacks while active, red cross at zero stacks when worn equipment is confirmed, and `?` for unknown readings. A `*` beside remote stacks means the power is observed but remote gear is not available to confirm wearing versus a cubed power. Stricken displays `~` observed proc counts only near a single identified live boss; this is an estimate, not exact per-target stacks, and resets when the encounter, sampling, area or focus changes. F11 aligns/resizes portrait frames. Local hero maps to the first frame automatically; other party frames follow game slot order, with explicit slot overrides available in settings. Out-of-world, stale and absent players have no live glow. CoE cycling was observed live on Barbarian and Crusader; Squirt stacks and a Stricken proc flag were observed on party members. Exact Stricken target stacks are not available from this reader. Live Stricken proc transitions and Squirt recovery from 6 to 10 stacks were observed. Live zero-stack red-cross and boss proc-count validation remain pending. The element types follow [Blizzard's Convention of Elements description](https://eu.diablo3.blizzard.com/en-us/item/convention-of-elements-P2_Unique_Ring_04). Compact XP/hour uses K/M/B abbreviations.
 
 Generate an illustrative preview with the actual HUD renderer (sample skill times, not a game screenshot):
 

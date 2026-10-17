@@ -16,6 +16,7 @@ public sealed class OverlayWindow : Window
     readonly Canvas canvas = new();
     readonly MyriamGuideView myriamGuide = new() { Visibility = Visibility.Collapsed };
     readonly Dictionary<WidgetState, WidgetVisual> visuals = [];
+    readonly List<WidgetVisual> skillAnchors = [];
     HwndSource? source;
     KeyboardHotkeys? hotkeys;
     long nextTopmostCheck;
@@ -122,6 +123,7 @@ public sealed class OverlayWindow : Window
     {
         canvas.Children.Clear();
         visuals.Clear();
+        skillAnchors.Clear();
         bool editing = !vm.Settings.ClickThrough;
         foreach (var state in vm.Settings.Widgets.Where(w => w.Enabled))
         {
@@ -246,6 +248,18 @@ public sealed class OverlayWindow : Window
             }
             canvas.Children.Add(grid);
         }
+        for (int i = 0; i < 6; i++)
+        {
+            var anchor = new WidgetVisual
+            {
+                Kind = WidgetKind.Cooldowns,
+                SingleSkillSlot = i,
+                IsHitTestVisible = false,
+                Visibility = Visibility.Collapsed,
+            };
+            skillAnchors.Add(anchor);
+            canvas.Children.Add(anchor);
+        }
         canvas.Children.Add(myriamGuide);
         Refresh();
     }
@@ -262,32 +276,18 @@ public sealed class OverlayWindow : Window
         );
         if (widget is null)
             return null;
-        // Calibrated icons use capture coordinates; badges use WPF DIPs on the chosen monitor.
-        for (int i = 0; i < Math.Min(6, vm.Settings.Skills.Count); i++)
-        {
-            var c = vm.Settings.Skills[i].Calibration;
-            if (c is null)
-                continue;
-            double x = captureBounds.Left + c.X * (captureBounds.Right - captureBounds.Left);
-            double y = captureBounds.Top + c.Y * (captureBounds.Bottom - captureBounds.Top);
-            if (
-                cursor.X >= x
-                && cursor.X < x + c.Width * (captureBounds.Right - captureBounds.Left)
-                && cursor.Y >= y
-                && cursor.Y < y + c.Height * (captureBounds.Bottom - captureBounds.Top)
-            )
-                return i;
-        }
-        var point = PointFromScreen(new Point(cursor.X, cursor.Y));
-        var p = HudLayout.Resolve(widget, Width, Height);
-        if (
-            point.X < p.X
-            || point.X >= p.X + widget.Width
-            || point.Y < p.Y
-            || point.Y >= p.Y + widget.Height
-        )
+        double width = captureBounds.Right - captureBounds.Left;
+        double height = captureBounds.Bottom - captureBounds.Top;
+        if (width <= 0 || height <= 0)
             return null;
-        return Math.Clamp((int)((point.X - p.X) / widget.Width * 6), 0, 5);
+        return SkillHitTesting.Hit(
+            vm.Settings.Skills,
+            (cursor.X - captureBounds.Left) / width,
+            (cursor.Y - captureBounds.Top) / height,
+            width / height,
+            vm.Settings.WholeScreen,
+            vm.Settings.Monitor
+        );
     }
 
     public void Refresh()
@@ -312,8 +312,14 @@ public sealed class OverlayWindow : Window
 
         var skills = vm.CooldownSnapshot();
         var autoCast = vm.AutoCast.EnabledSnapshot();
+        UpdateSkillAnchors(skills, autoCast);
         foreach (var (state, visual) in visuals)
         {
+            if (state.Kind == WidgetKind.Cooldowns)
+                ((Grid)visual.Parent).Visibility =
+                    vm.Settings.ClickThrough && vm.Settings.CooldownMode == CooldownMode.VisualRead
+                        ? Visibility.Collapsed
+                        : Visibility.Visible;
             string previousCaption = visual.Caption;
             string previousValue = visual.Value;
             bool mapChanged =
@@ -392,6 +398,19 @@ public sealed class OverlayWindow : Window
                 var member = vm.Settings.Party[(int)state.Kind - (int)WidgetKind.Party1];
                 visual.PartyName = member.Name;
                 visual.PartyClass = member.Class;
+                var buffs =
+                    vm.Settings.PortraitBuffsEnabled
+                    && vm.CombatBuffs.IsFresh(Environment.TickCount64)
+                    && GameInput.IsDiabloForeground()
+                        ? vm.CombatBuffs.Portrait(
+                            (int)state.Kind - (int)WidgetKind.Party1,
+                            member.GamePlayerSlot
+                        )
+                        : null;
+                visual.PlayerBuffs = buffs;
+                visual.StrickenProcs = buffs is null ? null : vm.Stricken.Count(buffs.PlayerSlot);
+                visual.ConventionDisplay = vm.Settings.ConventionDisplay;
+                visual.InvalidateVisual();
             }
             if (
                 previousCaption != visual.Caption
@@ -405,6 +424,64 @@ public sealed class OverlayWindow : Window
                 || mapChanged
             )
                 visual.InvalidateVisual();
+        }
+    }
+
+    void UpdateSkillAnchors(IReadOnlyList<SkillCountdown> skills, IReadOnlyList<bool> automatic)
+    {
+        var widget = vm.Settings.Widgets.FirstOrDefault(w =>
+            w.Kind == WidgetKind.Cooldowns && w.Enabled
+        );
+        var area = vm.CaptureArea;
+        bool show =
+            widget is not null
+            && vm.Settings.ClickThrough
+            && vm.Settings.CooldownMode == CooldownMode.VisualRead
+            && area is not null
+            && Environment.TickCount64 - vm.CaptureAreaSeen <= 500
+            && area.WholeScreen == vm.Settings.WholeScreen
+            && (!area.WholeScreen || area.Monitor == vm.Settings.Monitor)
+            && GameInput.IsDiabloForeground();
+        for (int i = 0; i < skillAnchors.Count; i++)
+        {
+            var visual = skillAnchors[i];
+            visual.Visibility = Visibility.Collapsed;
+            if (
+                !show
+                || area is null
+                || i >= vm.Settings.Skills.Count
+                || vm.Settings.Skills[i].Calibration is not { } c
+                || SkillHitTesting.Hit(
+                    vm.Settings.Skills,
+                    c.X + c.Width / 2,
+                    c.Y + c.Height / 2,
+                    (double)area.Width / area.Height,
+                    area.WholeScreen,
+                    area.Monitor
+                ) != i
+            )
+                continue;
+            var a = PointFromScreen(
+                new Point(area.Left + c.X * area.Width, area.Top + c.Y * area.Height)
+            );
+            var b = PointFromScreen(
+                new Point(
+                    area.Left + (c.X + c.Width) * area.Width,
+                    area.Top + (c.Y + c.Height) * area.Height
+                )
+            );
+            visual.Width = Math.Max(1, b.X - a.X);
+            visual.Height = Math.Max(1, b.Y - a.Y);
+            Canvas.SetLeft(visual, a.X);
+            Canvas.SetTop(visual, a.Y);
+            visual.Skills = skills;
+            visual.AutoCastSkills = automatic;
+            visual.HoveredSkill = vm.AutoCast.HoverSlot;
+            visual.HoverProgress = vm.AutoCast.HoverFraction;
+            visual.FontName = vm.Settings.Font;
+            visual.Opacity = widget!.Opacity;
+            visual.Visibility = Visibility.Visible;
+            visual.InvalidateVisual();
         }
     }
 }

@@ -95,18 +95,26 @@ int mapChecks =
     RiftMapChecks.Run()
     + MapMarkerChecks.Run()
     + KadalaChecks.Run()
+    + CombatBuffChecks.Run()
+    + CombatBuffReaderChecks.Run()
     + await MyriamChecks.RunAsync();
 Console.WriteLine(
     $"All {13 + visualChecks + autoCastChecks + skillInputChecks + mapChecks} checks passed."
 );
-if (args.Contains("--map-preview") || args.Contains("--marker-preview"))
+if (
+    args.Contains("--map-preview")
+    || args.Contains("--marker-preview")
+    || args.Contains("--portrait-preview")
+)
 {
     Exception? failure = null;
     var thread = new Thread(() =>
     {
         try
         {
-            if (args.Contains("--marker-preview"))
+            if (args.Contains("--portrait-preview"))
+                PortraitBuffPreview.Save();
+            else if (args.Contains("--marker-preview"))
                 MapMarkerPreview.Save();
             else
                 RiftMapPreview.Save();
@@ -122,9 +130,11 @@ if (args.Contains("--map-preview") || args.Contains("--marker-preview"))
     if (failure is not null)
         throw new InvalidOperationException("Map preview failed", failure);
     Console.WriteLine(
-        args.Contains("--marker-preview")
+        args.Contains("--portrait-preview")
+            ? "Illustrative portrait states saved to artifacts/portrait-buffs-preview.png"
+        : args.Contains("--marker-preview")
             ? "Sample marker preview saved to artifacts/map-marker-preview.png"
-            : "Live WPF map preview saved to artifacts/reverse-engineering/wpf-map-preview.png"
+        : "Live WPF map preview saved to artifacts/reverse-engineering/wpf-map-preview.png"
     );
 }
 if (args.Contains("--capture"))
@@ -145,6 +155,17 @@ if (args.Contains("--capture"))
         Console.WriteLine(
             $"GPU capture passed: {frame!.Width} x {frame.Height}. Pixels were not saved."
         );
+        CaptureFrame? window = null;
+        for (int i = 0; i < 30 && window is null; i++)
+        {
+            window = gpu.Capture(false, 0);
+            await Task.Delay(100);
+        }
+        Check(
+            window?.Area is { WholeScreen: false },
+            "Window capture has matching physical screen bounds for hover targeting"
+        );
+        Console.WriteLine($"Window capture coordinates: {window!.Area}");
     });
 }
 if (args.Contains("--hud-preview"))

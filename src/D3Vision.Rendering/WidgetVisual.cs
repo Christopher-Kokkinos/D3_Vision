@@ -6,7 +6,7 @@ using D3Vision.Core;
 namespace D3Vision.Rendering;
 
 /// <summary>Small transparent HUD annotations; window chrome appears only while editing.</summary>
-public sealed class WidgetVisual : FrameworkElement
+public sealed partial class WidgetVisual : FrameworkElement
 {
     public WidgetVisual() => ClipToBounds = true;
 
@@ -21,6 +21,7 @@ public sealed class WidgetVisual : FrameworkElement
     public IReadOnlyList<bool> AutoCastSkills { get; set; } = [];
     public int? HoveredSkill { get; set; }
     public double HoverProgress { get; set; }
+    public int? SingleSkillSlot { get; set; }
     public string PartyName { get; set; } = "Player";
     public HeroClass PartyClass { get; set; } = HeroClass.Wizard;
     public RiftMapDrawing MapDrawing { get; set; } = RiftMapDrawing.Waiting;
@@ -35,7 +36,7 @@ public sealed class WidgetVisual : FrameworkElement
             return;
         }
         var accent = new SolidColorBrush(Accent);
-        if (SlateTheme && !EditMode && Kind != WidgetKind.Cooldowns)
+        if (SlateTheme && !EditMode && Kind != WidgetKind.Cooldowns && !HudLayout.IsParty(Kind))
             dc.DrawRectangle(
                 new SolidColorBrush(Color.FromArgb(55, 35, 43, 55)),
                 null,
@@ -251,11 +252,13 @@ public sealed class WidgetVisual : FrameworkElement
 
     void DrawSkills(DrawingContext dc, Brush accent)
     {
-        double cell = ActualWidth / 6;
-        for (int i = 0; i < Math.Min(6, Skills.Count); i++)
+        double cell = SingleSkillSlot is null ? ActualWidth / 6 : ActualWidth;
+        for (int i = SingleSkillSlot ?? 0; i < Math.Min(6, Skills.Count); i++)
         {
+            if (SingleSkillSlot is { } selected && i != selected)
+                break;
             var skill = Skills[i];
-            double x = cell * i;
+            double x = SingleSkillSlot is null ? cell * i : 0;
             bool automatic = i < AutoCastSkills.Count && AutoCastSkills[i];
             if (automatic)
             {
@@ -339,34 +342,7 @@ public sealed class WidgetVisual : FrameworkElement
 
     void DrawElements(DrawingContext dc)
     {
-        Text(dc, PartyName, 10, new SolidColorBrush(Accent), 2, 0, ActualWidth - 4);
-        var elements = ElementCycles.ForClass(PartyClass);
-        double gap = 2,
-            cell = (ActualWidth - (elements.Count - 1) * gap) / elements.Count;
-        for (int i = 0; i < elements.Count; i++)
-        {
-            var element = elements[i];
-            double x = i * (cell + gap),
-                y = Math.Max(15, ActualHeight - 17);
-            Color colour = ElementColor(element);
-            dc.DrawRectangle(
-                new SolidColorBrush(Color.FromArgb(150, colour.R, colour.G, colour.B)),
-                null,
-                new Rect(x, y, cell, 14)
-            );
-            dc.DrawLine(new Pen(new SolidColorBrush(colour), 1), new(x, y), new(x + cell, y));
-            Text(
-                dc,
-                element.ToString()[..3].ToUpperInvariant(),
-                8,
-                Brushes.White,
-                x,
-                y + 1,
-                cell,
-                center: true
-            );
-        }
-        // No moving indicator or countdown: these bars are visual-only until a real source exists.
+        DrawPlayerBuffs(dc);
     }
 
     public static Color ElementColor(Element element) =>

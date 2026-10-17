@@ -118,7 +118,7 @@ public sealed class SettingsWindow : Window
             }
         );
         Label(
-            "VisualRead reads the shaded sweep from calibrated skill icons. Wait until all selected skills are ready, then calibrate their artwork. Inferred seconds are marked ~; ? means unknown or unreadable. Exact live seconds are not available from a shaded sweep alone."
+            "VisualRead reads the shaded sweep from calibrated skill icons. Wait until all selected skills are ready, then calibrate their artwork. The 3-second hover targets only these boxes, never the movable timer badges. Recalibrate after changing capture mode, monitor, aspect ratio or UI scale. Inferred seconds are marked ~; ? means unknown or unreadable. Exact live seconds are not available from a shaded sweep alone."
         );
         panel.Children.Add(
             new Button
@@ -168,10 +168,35 @@ public sealed class SettingsWindow : Window
                 Margin = new Thickness(0, 5, 0, 5),
             }
         );
-        Label("Party portrait bars — visual layout only");
+        Label("Live portrait buffs");
         Label(
-            "Choose names and classes to lay out each element strip. These bars show the element order; they do not display live party buffs or predicted timing."
+            "CoE colours follow live buff readings. Squirt is gold while active and crossed red at zero stacks when equipment is confirmed. A * means the live power is active but remote equipment is unavailable; ? means unknown. Stricken ~ counts observed procs near an identified boss; procs can also hit adds, so this is not exact target stacks. F11 lets you align each portrait frame. Match each frame to its game player slot below."
         );
+        var portraitBuffs = new CheckBox
+        {
+            Content = "Show live CoE, Squirt and Stricken portrait indicators",
+            IsChecked = vm.Settings.PortraitBuffsEnabled,
+            Foreground = Brushes.White,
+        };
+        portraitBuffs.Click += (_, _) =>
+            vm.Settings.PortraitBuffsEnabled = portraitBuffs.IsChecked == true;
+        panel.Children.Add(portraitBuffs);
+        Combo(
+            "CoE display",
+            Enum.GetValues<ConventionDisplayMode>(),
+            vm.Settings.ConventionDisplay,
+            selected => vm.Settings.ConventionDisplay = (ConventionDisplayMode)selected
+        );
+        var buffStatus = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 4),
+        };
+        buffStatus.SetBinding(
+            TextBlock.TextProperty,
+            new Binding(nameof(MainViewModel.BuffStatus)) { Source = vm }
+        );
+        panel.Children.Add(buffStatus);
         foreach (var member in vm.Settings.Party.Take(4))
         {
             var row = new StackPanel
@@ -194,18 +219,23 @@ public sealed class SettingsWindow : Window
                 }
             );
             row.Children.Add(name);
-            var hero = new ComboBox
+            var playerSlot = new ComboBox
             {
-                Width = 180,
-                ItemsSource = Enum.GetValues<HeroClass>(),
-                SelectedItem = member.Class,
+                Width = 125,
+                ItemsSource = new[]
+                {
+                    "Auto portrait",
+                    "Game slot 1",
+                    "Game slot 2",
+                    "Game slot 3",
+                    "Game slot 4",
+                },
+                SelectedIndex = Math.Clamp(member.GamePlayerSlot + 1, 0, 4),
+                Margin = new Thickness(8, 0, 0, 0),
             };
-            hero.SelectionChanged += (_, _) =>
-            {
-                if (hero.SelectedItem is HeroClass selected)
-                    member.Class = selected;
-            };
-            row.Children.Add(hero);
+            playerSlot.SelectionChanged += (_, _) =>
+                member.GamePlayerSlot = playerSlot.SelectedIndex - 1;
+            row.Children.Add(playerSlot);
             panel.Children.Add(row);
         }
         Label("Widgets • enabled / opacity / accent (#RRGGBB)");

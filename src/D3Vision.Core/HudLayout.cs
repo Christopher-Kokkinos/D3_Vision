@@ -38,6 +38,7 @@ public enum Element
 
 public sealed class PartyMemberSettings
 {
+    public int GamePlayerSlot { get; set; } = -1;
     public string Name { get; set; } = "Player";
     public HeroClass Class { get; set; } = HeroClass.Wizard;
 }
@@ -124,10 +125,27 @@ public static class HudLayout
             settings.Party.Add(
                 new PartyMemberSettings { Name = $"Player {settings.Party.Count + 1}" }
             );
-        while (settings.Skills.Count < 6)
-            settings.Skills.Add(SkillSettings.Defaults()[settings.Skills.Count]);
         if (settings.HudLayoutVersion < CurrentVersion)
             ApplyPreset(settings);
+        if (settings.PortraitLayoutVersion < 1)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                settings.Party[i].GamePlayerSlot = -1;
+                var portrait = settings.Widgets.Single(w =>
+                    w.Kind == (WidgetKind)((int)WidgetKind.Party1 + i)
+                );
+                portrait.HorizontalAnchor = HorizontalAnchor.Left;
+                portrait.VerticalAnchor = VerticalAnchor.Top;
+                portrait.Width = 185;
+                portrait.Height = 100;
+                portrait.X = 14;
+                portrait.Y = 38 + i * 118;
+            }
+            settings.PortraitLayoutVersion = 1;
+        }
+        while (settings.Skills.Count < 6)
+            settings.Skills.Add(SkillSettings.Defaults()[settings.Skills.Count]);
     }
 
     public static void ApplyPreset(Settings settings)
@@ -192,10 +210,10 @@ public static class HudLayout
                     if (IsParty(w.Kind))
                     {
                         w.HorizontalAnchor = HorizontalAnchor.Left;
-                        w.Width = 190;
-                        w.Height = 36;
-                        w.X = 106;
-                        w.Y = 92 + ((int)w.Kind - (int)WidgetKind.Party1) * 104;
+                        w.Width = 185;
+                        w.Height = 100;
+                        w.X = 14;
+                        w.Y = 38 + ((int)w.Kind - (int)WidgetKind.Party1) * 118;
                     }
                     break;
             }

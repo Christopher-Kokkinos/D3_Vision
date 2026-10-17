@@ -68,6 +68,21 @@ public sealed class DiabloMapReader : IMapDataSource
         }
     }
 
+    public CombatBuffSnapshot ReadBuffs(RiftMapSnapshot snapshot)
+    {
+        lock (sync)
+        {
+            using var process = Process.GetProcessById(snapshot.ProcessId);
+            if (
+                checkedProcessId != process.Id
+                || checkedStartTime != process.StartTime.ToUniversalTime().Ticks
+            )
+                throw new InvalidOperationException("Buff sample belongs to another game session.");
+            using var memory = new ReadOnlyProcess(process.Id);
+            return CombatBuffReader.Capture(memory, process.MainModule!.BaseAddress, snapshot);
+        }
+    }
+
     public int ReadInventoryCount(RiftMapSnapshot snapshot)
     {
         lock (sync)

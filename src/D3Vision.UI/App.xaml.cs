@@ -25,6 +25,7 @@ public partial class App : Application
     bool calibrating;
     Task? autoCastTask;
     Task? mapTracking;
+    Task? buffTracking;
     Task? kadalaTracking;
     readonly KadalaRunner kadalaRunner = new();
     readonly DiabloMapReader mapReader = new();
@@ -151,6 +152,7 @@ public partial class App : Application
                 overlay.Refresh();
             };
             refresh.Start();
+            buffTracking = TrackBuffsAsync(stop.Token);
             autosave = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
             autosave.Tick += async (_, _) => await SaveSafe();
             autosave.Start();
@@ -168,6 +170,12 @@ public partial class App : Application
                     ocrError = ex.Message;
                 }
                 var service = new TrackingService(capture, textOcr);
+                service.CaptureAreaRead += area =>
+                    Dispatcher.Invoke(() =>
+                    {
+                        vm.CaptureArea = area;
+                        vm.CaptureAreaSeen = Environment.TickCount64;
+                    });
                 service.CooldownsRead += observations =>
                     Dispatcher.Invoke(() =>
                     {
@@ -381,26 +389,48 @@ public partial class App : Application
             vm.AutoCast.StopAll();
             return;
         }
-        var captureBounds = gameBounds;
-        if (vm.Settings.WholeScreen)
+        if (
+            vm.CaptureArea is not { } captureArea
+            || Environment.TickCount64 - vm.CaptureAreaSeen > 500
+            || captureArea.WholeScreen != vm.Settings.WholeScreen
+            || (captureArea.WholeScreen && captureArea.Monitor != vm.Settings.Monitor)
+        )
         {
-            var monitors = Native.Monitors();
-            if (monitors.Count == 0)
-            {
-                vm.AutoCast.StopAll();
-                return;
-            }
-            captureBounds = monitors[Math.Clamp(vm.Settings.Monitor, 0, monitors.Count - 1)];
-            if (
+            vm.AutoCast.StopAll();
+            return;
+        }
+        var captureBounds = new Native.Rect
+        {
+            Left = captureArea.Left,
+            Top = captureArea.Top,
+            Right = captureArea.Left + captureArea.Width,
+            Bottom = captureArea.Top + captureArea.Height,
+        };
+        if (
+            !captureArea.WholeScreen
+            && (
+                captureBounds.Left != gameBounds.Left
+                || captureBounds.Top != gameBounds.Top
+                || captureBounds.Right != gameBounds.Right
+                || captureBounds.Bottom != gameBounds.Bottom
+            )
+        )
+        {
+            vm.AutoCast.StopAll();
+            return;
+        }
+        if (
+            captureArea.WholeScreen
+            && (
                 captureBounds.Right <= gameBounds.Left
                 || captureBounds.Left >= gameBounds.Right
                 || captureBounds.Bottom <= gameBounds.Top
                 || captureBounds.Top >= gameBounds.Bottom
             )
-            {
-                vm.AutoCast.StopAll();
-                return;
-            }
+        )
+        {
+            vm.AutoCast.StopAll();
+            return;
         }
         vm.AutoCast.UpdateHover(overlay.HoveredSkill(cursor, captureBounds), true);
         bool cursorInside =
@@ -469,7 +499,13 @@ public partial class App : Application
                 calibrations =>
                 {
                     for (int i = 0; i < Math.Min(6, calibrations.Count); i++)
-                        vm.Settings.Skills[i].Calibration = calibrations[i];
+                        vm.Settings.Skills[i].Calibration = calibrations[i] is { } c
+                            ? c with
+                            {
+                                WholeScreen = whole,
+                                Monitor = whole ? monitor : null,
+                            }
+                            : null;
                     vm.Settings.CooldownMode = CooldownMode.VisualRead;
                     vm.ResetCooldowns();
                     _ = SaveSafe();
@@ -575,6 +611,67 @@ public partial class App : Application
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
+    async Task TrackBuffsAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+        RiftMapSnapshot? snapshot = null;
+        long nextScene = 0;
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                if (
+                    !vm.Settings.PortraitBuffsEnabled
+                    || !overlay.IsVisible
+                    || !GameInput.IsDiabloForeground()
+                )
+                {
+                    vm.CombatBuffs = CombatBuffSnapshot.Waiting;
+                    vm.Stricken.Apply(CombatBuffSnapshot.Waiting);
+                    vm.BuffStatus = vm.Settings.PortraitBuffsEnabled
+                        ? "Waiting for Diablo III foreground"
+                        : "Portrait buffs disabled";
+                    snapshot = null;
+                    continue;
+                }
+                try
+                {
+                    var result = await Task.Run(
+                        () =>
+                        {
+                            if (snapshot is null || Environment.TickCount64 >= nextScene)
+                            {
+                                snapshot = mapReader.Capture();
+                                nextScene = Environment.TickCount64 + 1000;
+                            }
+                            return mapReader.ReadBuffs(snapshot);
+                        },
+                        token
+                    );
+                    vm.CombatBuffs = result;
+                    vm.BuffStatus = result.Status;
+                    vm.Stricken.Apply(result);
+                }
+                catch (Exception ex)
+                    when (ex
+                            is System.ComponentModel.Win32Exception
+                                or IOException
+                                or InvalidOperationException
+                                or UnauthorizedAccessException
+                                or ArgumentException
+                    )
+                {
+                    vm.CombatBuffs = CombatBuffSnapshot.Waiting;
+                    vm.Stricken.Apply(CombatBuffSnapshot.Waiting);
+                    vm.BuffStatus = "Buffs unavailable: " + ex.Message;
+                    snapshot = null;
+                    await Task.Delay(1000, token);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+    }
+
     async Task QuitAsync()
     {
         if (exiting)
@@ -586,6 +683,8 @@ public partial class App : Application
         stop.Cancel();
         if (mapTracking is not null)
             await mapTracking;
+        if (buffTracking is not null)
+            await buffTracking;
         if (kadalaTracking is not null)
             await kadalaTracking;
         await Task.WhenAll(myriamTasks);

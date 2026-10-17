@@ -45,7 +45,7 @@ internal static class ActorMarkerReader
                 if (id == -1 || (id & 65535) != first + index || Int(0x118) != worlds[0])
                     continue;
                 MapMarkerKind? kind = elites
-                    ? MapMarkerClassification.Elite(balanceType, Int(0xB8))
+                    ? MapMarkerClassification.Elite(balanceType, Int(0xB8), Int(0x90))
                     : null;
                 if (kind is null && !(loot && balanceType == 2 && Int(0x124) == -1))
                     continue;

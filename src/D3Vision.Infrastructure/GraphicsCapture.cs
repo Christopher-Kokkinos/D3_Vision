@@ -105,8 +105,51 @@ public sealed class GraphicsCapture : IScreenCapture
         if (buffer.Length != length)
             buffer = new byte[length];
         bitmap.CopyToBuffer(buffer.AsBuffer());
-        return new(buffer, bitmap.PixelWidth, bitmap.PixelHeight);
+        CaptureArea? area = null;
+        if (wholeScreen)
+        {
+            var monitors = Native.Monitors();
+            if (monitor >= 0 && monitor < monitors.Count)
+            {
+                var rect = monitors[monitor];
+                if (
+                    rect.Right - rect.Left == bitmap.PixelWidth
+                    && rect.Bottom - rect.Top == bitmap.PixelHeight
+                )
+                    area = new(
+                        rect.Left,
+                        rect.Top,
+                        bitmap.PixelWidth,
+                        bitmap.PixelHeight,
+                        true,
+                        monitor
+                    );
+            }
+        }
+        else if (
+            DwmGetWindowAttribute(currentTarget, 9, out var bounds, Marshal.SizeOf<Native.Rect>())
+                == 0
+            && bounds.Right - bounds.Left == bitmap.PixelWidth
+            && bounds.Bottom - bounds.Top == bitmap.PixelHeight
+        )
+            area = new(
+                bounds.Left,
+                bounds.Top,
+                bitmap.PixelWidth,
+                bitmap.PixelHeight,
+                false,
+                monitor
+            );
+        return new(buffer, bitmap.PixelWidth, bitmap.PixelHeight, area);
     }
+
+    [DllImport("dwmapi.dll")]
+    static extern int DwmGetWindowAttribute(
+        nint hwnd,
+        int attribute,
+        out Native.Rect bounds,
+        int size
+    );
 
     void OnClosed(GraphicsCaptureItem sender, object args) => closed = true;
 

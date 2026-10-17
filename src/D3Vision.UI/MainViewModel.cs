@@ -39,6 +39,16 @@ public sealed class MainViewModel(Settings settings, SessionStats stats) : Obser
     public SkillTimers Cooldowns { get; } = new();
     public VisualCooldownTimers VisualCooldowns { get; } = new();
     public AutoCastController AutoCast { get; } = new();
+    public CaptureArea? CaptureArea { get; set; }
+    public long CaptureAreaSeen { get; set; }
+    public CombatBuffSnapshot CombatBuffs { get; set; } = CombatBuffSnapshot.Waiting;
+    public StrickenProcTracker Stricken { get; } = new();
+    string buffStatus = "Waiting for live buffs";
+    public string BuffStatus
+    {
+        get => buffStatus;
+        set => Set(ref buffStatus, value);
+    }
     private RiftMapDrawing riftMap = RiftMapDrawing.Waiting;
     public RiftMapDrawing RiftMap
     {

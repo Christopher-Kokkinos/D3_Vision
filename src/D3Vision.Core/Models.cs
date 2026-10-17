@@ -36,6 +36,12 @@ public enum WidgetKind
     RiftMap,
 }
 
+public enum ConventionDisplayMode
+{
+    PortraitGlow,
+    RingIcon,
+}
+
 public sealed class WidgetState : Observable
 {
     double x = 24,
@@ -95,12 +101,16 @@ public sealed class WidgetState : Observable
             WidgetKind.Elites => "ELITE PACKS",
             WidgetKind.Goblins => "GOBLINS",
             WidgetKind.RiftMap => "NEARBY MAP (EXPERIMENTAL)",
-            _ => $"PARTY {(int)Kind - (int)WidgetKind.Party1 + 1} ELEMENTS",
+            _ => $"PORTRAIT {(int)Kind - (int)WidgetKind.Party1 + 1} BUFFS",
         };
 }
 
 public sealed class Settings
 {
+    public bool PortraitBuffsEnabled { get; set; } = true;
+    public int PortraitLayoutVersion { get; set; }
+    public ConventionDisplayMode ConventionDisplay { get; set; } =
+        ConventionDisplayMode.PortraitGlow;
     public CooldownMode CooldownMode { get; set; } = CooldownMode.VisualRead;
     public int HudLayoutVersion { get; set; }
     public bool TrackSkillInput { get; set; } = true;
@@ -156,7 +166,16 @@ public sealed class SessionStats
     public List<string> ItemDrops { get; set; } = [];
 }
 
-public sealed record CaptureFrame(byte[] Bgra, int Width, int Height);
+public sealed record CaptureArea(
+    int Left,
+    int Top,
+    int Width,
+    int Height,
+    bool WholeScreen,
+    int Monitor
+);
+
+public sealed record CaptureFrame(byte[] Bgra, int Width, int Height, CaptureArea? Area = null);
 
 public interface IScreenCapture : IDisposable
 {

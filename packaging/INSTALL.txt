@@ -20,3 +20,9 @@ Experimental native map/actor reading supports Diablo III build 2.8.0.99920 only
 Settings, statistics and session history are stored in %LOCALAPPDATA%\D3Vision.
 Uninstall preserves these files and any user-added files in the install folder.
 This installer does not include user settings, captures, or developer tools.
+
+Updating to 1.1.0:
+Save all six ready skill calibration boxes again in F12 before using hover toggles.
+Use F11 to align the new portrait frames. Live CoE glow/ring mode is selected in F12.
+Stricken remains experimental and is the next planned fix; exact boss stacks and
+live counter increments are not validated. A ~ value is an estimated proc count.

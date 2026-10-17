@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
+using D3Vision.Core;
 using D3Vision.Infrastructure;
 
 try
@@ -16,14 +17,69 @@ try
                         or "--alignment"
                         or "--markers"
                         or "--elite-diagnostics"
+                        or "--buffs"
+                        or "--buff-details"
+                        or "--buff-watch"
+                        or "--record-buffs"
                     )
             )
     )
         throw new ArgumentException(
-            "Usage: D3Vision.MapProbe <output.json> [--contexts] [--map-cache] [--alignment] [--markers] [--elite-diagnostics]"
+            "Usage: D3Vision.MapProbe <output.json> [--contexts] [--map-cache] [--alignment] [--markers] [--elite-diagnostics] [--buffs] [--buff-details] [--buff-watch] [--record-buffs]"
         );
     var reader = new DiabloMapReader();
+    if (args.Contains("--record-buffs"))
+    {
+        await BuffRecording.RecordAsync(reader, args[0]);
+        return 0;
+    }
     var snapshot = reader.Capture();
+    if (args.Contains("--buff-watch"))
+    {
+        string last = "";
+        var tracker = new StrickenProcTracker();
+        for (int i = 0; i < 200; i++)
+        {
+            string state;
+            try
+            {
+                if (i % 10 == 0)
+                    snapshot = reader.Capture();
+                var buffs = reader.ReadBuffs(snapshot);
+                tracker.Apply(buffs);
+                state = string.Join(
+                    " | ",
+                    buffs.Players.Select(p =>
+                        $"slot={p.PlayerSlot}{(p.PlayerSlot == buffs.LocalPlayerSlot ? " (local)" : "")} {p.Class} CoE={p.ActiveElement} Squirt={p.SquirtsStacks} worn={p.SquirtsEquipped} Stricken={p.StrickenEquipped} proc={p.StrickenProc} boss={p.BossActorId} observed={tracker.Count(p.PlayerSlot)}"
+                    )
+                );
+            }
+            catch (Exception ex)
+                when (ex
+                        is Win32Exception
+                            or IOException
+                            or InvalidOperationException
+                            or ArgumentException
+                )
+            {
+                tracker.Apply(CombatBuffSnapshot.Waiting);
+                state = "Waiting for stable buff world: " + ex.Message;
+            }
+            if (state != last)
+            {
+                Console.WriteLine(state);
+                last = state;
+            }
+            await Task.Delay(100);
+        }
+    }
+    if (args.Contains("--buffs"))
+        Console.WriteLine(
+            JsonSerializer.Serialize(
+                reader.ReadBuffs(snapshot),
+                new JsonSerializerOptions { WriteIndented = true }
+            )
+        );
     if (args.Contains("--markers"))
         Console.WriteLine(
             JsonSerializer.Serialize(
@@ -37,6 +93,8 @@ try
         var module =
             process.MainModule ?? throw new InvalidOperationException("Game module unavailable.");
         using var memory = new ReadOnlyProcess(process.Id);
+        if (args.Contains("--buff-details"))
+            BuffDiagnostics.Print(memory, module.BaseAddress, snapshot);
         if (args.Contains("--elite-diagnostics"))
             EliteDiagnostics.Print(memory, module.BaseAddress, snapshot);
         if (args.Contains("--alignment"))

@@ -8,6 +8,7 @@ public sealed partial class TrackingService(IScreenCapture capture, IOcrService 
     public event Action<string>? TextRecognized;
     public event Action<string>? StatusChanged;
     public event Action<IReadOnlyList<CooldownObservation>>? CooldownsRead;
+    public event Action<CaptureArea?>? CaptureAreaRead;
     readonly CooldownSweepReader sweepReader = new();
     string lastStatus = "";
 
@@ -35,9 +36,11 @@ public sealed partial class TrackingService(IScreenCapture capture, IOcrService 
                 var frame = capture.Capture(setting.Whole, setting.Monitor);
                 if (frame is null)
                 {
+                    CaptureAreaRead?.Invoke(null);
                     Report("Waiting for Diablo III (windowed/borderless)");
                     continue;
                 }
+                CaptureAreaRead?.Invoke(frame.Area);
                 if (cooldownRegions is not null)
                 {
                     var regions = cooldownRegions();

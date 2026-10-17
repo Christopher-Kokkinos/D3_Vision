@@ -20,7 +20,9 @@ public sealed record SkillCalibration(
     double Width,
     double Height,
     byte[] ReadyBgra,
-    double CaptureAspectRatio = 0
+    double CaptureAspectRatio = 0,
+    bool? WholeScreen = null,
+    int? Monitor = null
 );
 
 public readonly record struct CooldownObservation(

@@ -1,0 +1,22 @@
+D3Vision for Windows 10/11 (Intel/AMD x64)
+
+Requires Windows 10 version 2004 (build 19041) or newer, or Windows 11.
+The .NET 8 Desktop Runtime is included. No separate .NET installation needed.
+Install for the current Windows user; administrator access is not required.
+
+Close D3Vision before installing an update or uninstalling.
+Launch D3Vision from the Start menu. Use Diablo III Windowed (Fullscreen)
+or Windowed display mode.
+
+F10: show/hide overlay
+F11: toggle click-through/editing
+F12: settings (including Exit D3Vision)
+
+Windows OCR requires an installed supported Windows OCR language pack.
+Kadala and Myriam screen detection currently expects the English game UI.
+Fresh Myriam build information needs Internet access; cached builds work offline.
+Experimental native map/actor reading supports Diablo III build 2.8.0.99920 only.
+
+Settings, statistics and session history are stored in %LOCALAPPDATA%\D3Vision.
+Uninstall preserves these files and any user-added files in the install folder.
+This installer does not include user settings, captures, or developer tools.

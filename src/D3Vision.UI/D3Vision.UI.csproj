@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UseWPF>true</UseWPF>
+    <OutputType>WinExe</OutputType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Product>D3Vision</Product>
+    <Title>D3Vision</Title>
+    <ApplicationIcon>../../packaging/Assets/D3Vision.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../D3Vision.Core/D3Vision.Core.csproj" />
+    <ProjectReference Include="../D3Vision.Infrastructure/D3Vision.Infrastructure.csproj" />
+    <ProjectReference Include="../D3Vision.Services/D3Vision.Services.csproj" />
+    <ProjectReference Include="../D3Vision.Rendering/D3Vision.Rendering.csproj" />
+  </ItemGroup>
+</Project>

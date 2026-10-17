@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+artifacts/
+__pycache__/
+/.tools/
+/*.exe
+*.user
+*.suo
+.env
+.env.*
+*.pfx
+*.p12
+*.key

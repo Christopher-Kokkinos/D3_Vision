@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../D3Vision.Core/D3Vision.Core.csproj" />
+  </ItemGroup>
+</Project>

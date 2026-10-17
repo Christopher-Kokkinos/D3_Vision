@@ -1,0 +1,64 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{AFB6F15C-68B2-4355-BCE5-270151FADE10}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3Vision.Core", "src\D3Vision.Core\D3Vision.Core.csproj", "{2AF59C55-B25E-48F3-87D9-38B479C29EF6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3Vision.Infrastructure", "src\D3Vision.Infrastructure\D3Vision.Infrastructure.csproj", "{2C1A0CB8-29F9-4994-B256-516B249E0C2D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3Vision.Rendering", "src\D3Vision.Rendering\D3Vision.Rendering.csproj", "{26164D67-C7D6-423D-9778-A019B1DDF7D3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3Vision.Services", "src\D3Vision.Services\D3Vision.Services.csproj", "{1CDFD5DE-717F-4863-A815-7FD21B3C2C04}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3Vision.UI", "src\D3Vision.UI\D3Vision.UI.csproj", "{828CCA42-1941-4CCE-AE1F-4B5C9C3630EF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{C5F4CAD5-35D0-4AA3-85FE-443EB5302E79}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "D3Vision.Tests", "tests\D3Vision.Tests\D3Vision.Tests.csproj", "{80599EE8-5253-490D-9F04-476CE11BDB79}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2AF59C55-B25E-48F3-87D9-38B479C29EF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2AF59C55-B25E-48F3-87D9-38B479C29EF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2AF59C55-B25E-48F3-87D9-38B479C29EF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2AF59C55-B25E-48F3-87D9-38B479C29EF6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2C1A0CB8-29F9-4994-B256-516B249E0C2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2C1A0CB8-29F9-4994-B256-516B249E0C2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2C1A0CB8-29F9-4994-B256-516B249E0C2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2C1A0CB8-29F9-4994-B256-516B249E0C2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{26164D67-C7D6-423D-9778-A019B1DDF7D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{26164D67-C7D6-423D-9778-A019B1DDF7D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{26164D67-C7D6-423D-9778-A019B1DDF7D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{26164D67-C7D6-423D-9778-A019B1DDF7D3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1CDFD5DE-717F-4863-A815-7FD21B3C2C04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CDFD5DE-717F-4863-A815-7FD21B3C2C04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CDFD5DE-717F-4863-A815-7FD21B3C2C04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CDFD5DE-717F-4863-A815-7FD21B3C2C04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{828CCA42-1941-4CCE-AE1F-4B5C9C3630EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{828CCA42-1941-4CCE-AE1F-4B5C9C3630EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{828CCA42-1941-4CCE-AE1F-4B5C9C3630EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{828CCA42-1941-4CCE-AE1F-4B5C9C3630EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80599EE8-5253-490D-9F04-476CE11BDB79}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80599EE8-5253-490D-9F04-476CE11BDB79}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80599EE8-5253-490D-9F04-476CE11BDB79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80599EE8-5253-490D-9F04-476CE11BDB79}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2AF59C55-B25E-48F3-87D9-38B479C29EF6} = {AFB6F15C-68B2-4355-BCE5-270151FADE10}
+		{2C1A0CB8-29F9-4994-B256-516B249E0C2D} = {AFB6F15C-68B2-4355-BCE5-270151FADE10}
+		{26164D67-C7D6-423D-9778-A019B1DDF7D3} = {AFB6F15C-68B2-4355-BCE5-270151FADE10}
+		{1CDFD5DE-717F-4863-A815-7FD21B3C2C04} = {AFB6F15C-68B2-4355-BCE5-270151FADE10}
+		{828CCA42-1941-4CCE-AE1F-4B5C9C3630EF} = {AFB6F15C-68B2-4355-BCE5-270151FADE10}
+		{80599EE8-5253-490D-9F04-476CE11BDB79} = {C5F4CAD5-35D0-4AA3-85FE-443EB5302E79}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,7 @@
+<Project>
+  <Target Name="SelectInstallerRuntime" BeforeTargets="ProcessFrameworkReferences">
+    <ItemGroup>
+      <FrameworkReference Update="Microsoft.NETCore.App;Microsoft.WindowsDesktop.App;Microsoft.WindowsDesktop.App.WPF" RuntimeFrameworkVersion="$(InstallerRuntimeVersion)" />
+    </ItemGroup>
+  </Target>
+</Project>

@@ -4,6 +4,7 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
+    <None Update="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/D3Vision.Services/D3Vision.Services.csproj" />
     <ProjectReference Include="../../src/D3Vision.Rendering/D3Vision.Rendering.csproj" />
   </ItemGroup>

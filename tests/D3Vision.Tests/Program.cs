@@ -97,6 +97,7 @@ int mapChecks =
     + KadalaChecks.Run()
     + CombatBuffChecks.Run()
     + CombatBuffReaderChecks.Run()
+    + StrickenReplayChecks.Run()
     + await MyriamChecks.RunAsync();
 Console.WriteLine(
     $"All {13 + visualChecks + autoCastChecks + skillInputChecks + mapChecks} checks passed."

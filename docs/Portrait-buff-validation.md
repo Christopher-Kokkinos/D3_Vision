@@ -88,3 +88,19 @@ This confirms live guardian capture, not a live counter increment. Proc attribut
 and final enemy stack totals remain estimates, especially when other enemies are
 present. The five-minute, 16-MB-capped recorder only reads memory, writes local ignored
 diagnostics, and does not send game inputs. Use `--record-buffs` to run it explicitly.
+
+## Controlled solo capture
+
+A subsequent solo Barbarian run on 17 October 2026 captured guardian actor SNO
+353535 with Stricken equipped. Across 124 encounter samples spanning approximately
+12.3 seconds, the observed proc estimate increased from 0 to 16. It cleared on the
+first sample after guardian disappearance, including while a proc flag lingered.
+The same run observed a confirmed worn Squirt necklace at every stack value 0..10.
+
+The normalized 144-sample encounter (without process IDs, player names, coordinates,
+or other raw game data) is preserved in the test fixture
+`tests/D3Vision.Tests/Fixtures/solo-stricken-procs.json`. Its replay checks the recorded
+estimate sequence, peak and disappearance reset. These results validate observed-proc
+tracking and native Squirt state readings; they do not establish sixteen exact enemy
+stacks, exclude missed fast events, or verify stack attribution in multi-enemy fights.
+The recorder was stopped after the capture. No game inputs were generated.

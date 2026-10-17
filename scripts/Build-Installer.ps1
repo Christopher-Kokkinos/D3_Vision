@@ -1,5 +1,5 @@
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '1.1.0',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '1.1.1',
     [string]$RuntimeVersion = '',
     [string]$CompilerPath = '',
     [switch]$Verify
@@ -63,5 +63,12 @@ if ($Verify) {
     Write-Host "Verified $($manifest.Count) installed file hashes, uninstall, and user-file retention. Validation build omits shortcuts, registry changes, and running-app checks."
 }
 ((Get-FileHash $output -Algorithm SHA256).Hash + '  ' + (Split-Path $output -Leaf)) | Set-Content "$output.sha256" -Encoding ASCII
+$zip = Join-Path $outputDir "D3Vision-$Version-win-x64.zip"
+$zipFiles = @($output, "$output.sha256", (Join-Path $workspace 'packaging\INSTALL.txt'))
+$releaseNotes = Join-Path $workspace "docs\releases\v$Version.md"
+if (Test-Path $releaseNotes) { $zipFiles += $releaseNotes }
+Compress-Archive -LiteralPath $zipFiles -DestinationPath $zip -CompressionLevel Optimal -Force
+((Get-FileHash $zip -Algorithm SHA256).Hash + '  ' + (Split-Path $zip -Leaf)) | Set-Content "$zip.sha256" -Encoding ASCII
 Write-Host "Installer: $output"
+Write-Host "ZIP: $zip"
 Write-Host "Size: $([Math]::Round((Get-Item $output).Length / 1MB, 1)) MB; bundled runtime: $RuntimeVersion"

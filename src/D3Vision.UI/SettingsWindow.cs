@@ -170,7 +170,7 @@ public sealed class SettingsWindow : Window
         );
         Label("Live portrait buffs");
         Label(
-            "CoE colours follow live buff readings. Squirt is gold while active and crossed red at zero stacks when equipment is confirmed. A * means the live power is active but remote equipment is unavailable; ? means unknown. Stricken ~ counts observed procs near an identified boss; procs can also hit adds, so this is not exact target stacks. F11 lets you align each portrait frame. Match each frame to its game player slot below."
+            "CoE colours follow live buff readings. Squirt is gold while active and crossed red at zero stacks when equipment is confirmed. A * means the live power is active but remote equipment is unavailable; ? means unknown. Stricken ready means the gem is equipped and waiting for a nearby guardian. During the fight, ~ marks the observed proc estimate; procs can hit adds, so this is not an exact target stack count. F11 lets you align each portrait frame. Match each frame to its game player slot below."
         );
         var portraitBuffs = new CheckBox
         {

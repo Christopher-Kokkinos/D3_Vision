@@ -100,7 +100,7 @@ public sealed partial class WidgetVisual
         if (buff?.StrickenEquipped == true || EditMode)
             Text(
                 dc,
-                StrickenProcs is { } procs ? $"Stricken ~{procs}" : "Stricken ?",
+                StrickenReadout.Text(buff, StrickenProcs) ?? "Stricken ready",
                 10,
                 Brushes.LightPink,
                 89 * sx,

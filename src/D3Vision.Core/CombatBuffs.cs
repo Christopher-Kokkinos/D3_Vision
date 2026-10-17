@@ -34,6 +34,17 @@ public sealed record CombatBuffSnapshot(
                 .ElementAtOrDefault(index);
 }
 
+public static class StrickenReadout
+{
+    public static string? Text(PlayerBuffState? player, int? observedProcs) =>
+        player switch
+        {
+            null or { StrickenEquipped: false } => null,
+            { BossActorId: null } => "Stricken ready",
+            _ => observedProcs is >= 0 ? $"Stricken ~{observedProcs}" : "Stricken ?",
+        };
+}
+
 public static class BuffDecoding
 {
     public const int ConventionPower = 430674;

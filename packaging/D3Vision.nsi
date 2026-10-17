@@ -7,10 +7,12 @@ Name "D3Vision"
 OutFile "${OUTPUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\D3Vision"
 RequestExecutionLevel user
+!ifdef VALIDATION_BUILD
+SetCompressor zlib
+SetCompress off
+!else
 SetCompressor /SOLID lzma
 SetCompressorDictSize 32
-!ifdef VALIDATION_BUILD
-SetCompress off
 !endif
 ManifestDPIAware True
 VIProductVersion "${APP_VERSION}.0"

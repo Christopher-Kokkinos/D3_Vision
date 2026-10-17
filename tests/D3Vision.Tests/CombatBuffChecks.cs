@@ -55,6 +55,22 @@ internal static class CombatBuffChecks
             false,
             500
         );
+        Check(
+            StrickenReadout.Text(player with { BossActorId = null }, null) == "Stricken ready",
+            "Equipped Stricken waits visibly between guardian encounters"
+        );
+        Check(
+            StrickenReadout.Text(player, 16) == "Stricken ~16",
+            "Live proc estimate is explicitly marked approximate"
+        );
+        Check(
+            StrickenReadout.Text(player, null) == "Stricken ?",
+            "Unknown encounter count does not invent a zero"
+        );
+        Check(
+            StrickenReadout.Text(player with { StrickenEquipped = false }, 16) is null,
+            "An unequipped gem has no Stricken readout"
+        );
         var snapshot = new CombatBuffSnapshot(
             7,
             20,

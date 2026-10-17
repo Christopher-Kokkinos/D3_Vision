@@ -2,11 +2,11 @@
 
 Windows 10/11 x64 desktop overlay for Diablo III, built with .NET 8 and WPF.
 
-**[Download the v1.1.0 Windows installer](https://github.com/Christopher-Kokkinos/D3_Vision/releases/tag/v1.1.0)**
+**[Download the v1.1.1 Windows installer](https://github.com/Christopher-Kokkinos/D3_Vision/releases/tag/v1.1.1)**
 
-**Stricken is pending the next fix:** the included counter is experimental; live increments and exact target stacks are not validated. See [v1.1.0 release notes](docs/releases/v1.1.0.md).
+**Stricken remains experimental:** a controlled solo capture validated the observed proc estimate rising from 0 to 16 and clearing after the guardian disappeared. This is not an exact enemy stack count. See [live validation details](docs/Portrait-buff-validation.md).
 
-Close D3Vision before installing or updating. The installer includes the .NET runtime,
+Close D3Vision before installing or updating. See [release notes for v1.1.1 and v1.1.0](CHANGELOG.md). The installer includes the .NET runtime,
 adds Start-menu shortcuts, and preserves settings and history. It is unsigned;
 Windows may display an unknown-publisher warning. See the feature notes and validation
 limits below before using the experimental readers and input automation.
@@ -44,7 +44,7 @@ Windows OCR is officially supported for desktop applications **with package iden
 
 ### Windows installer
 
-The standard installer is `artifacts/installers/D3Vision-Setup-1.1.0-win-x64.exe`.
+The standard installer is `artifacts/installers/D3Vision-Setup-1.1.1-win-x64.exe`.
 Close the overlay before running it. It supports Intel/AMD x64 Windows 10
 version 2004 (build 19041) or newer and Windows 11, includes the .NET 8 Desktop
 Runtime, and installs for the current user without elevation. Start-menu shortcuts,
@@ -102,7 +102,7 @@ The reader compares a calibrated ready icon with its current shaded sector at up
 
 `InputEstimate` retains the previous manual fallback. Configure effective durations for 1–4/LMB/RMB; 0 disables a timer. Key/button input starts estimates only when Diablo III is foreground and continues to reach the game. Holding a key does not restart an active countdown. Click a badge while unlocked to test it. Configured durations and input starts are ignored in `VisualRead`. **Clear skill countdowns** resets both modes.
 
-**Live portrait indicators:** F12 enables live buffs and selects `PortraitGlow` (default) or `RingIcon` for Convention of Elements. The glow follows the observed active element, without a simulated cycle. Squirt uses a necklace symbol: gold with stacks while active, red cross at zero stacks when worn equipment is confirmed, and `?` for unknown readings. A `*` beside remote stacks means the power is observed but remote gear is not available to confirm wearing versus a cubed power. Stricken displays `~` observed proc counts only near a single identified live boss; this is an estimate, not exact per-target stacks, and resets when the encounter, sampling, area or focus changes. F11 aligns/resizes portrait frames. Local hero maps to the first frame automatically; other party frames follow game slot order, with explicit slot overrides available in settings. Out-of-world, stale and absent players have no live glow. CoE cycling was observed live on Barbarian and Crusader; Squirt stacks and a Stricken proc flag were observed on party members. Exact Stricken target stacks are not available from this reader. Live Stricken proc transitions and Squirt recovery from 6 to 10 stacks were observed. Live zero-stack red-cross and boss proc-count validation remain pending. The element types follow [Blizzard's Convention of Elements description](https://eu.diablo3.blizzard.com/en-us/item/convention-of-elements-P2_Unique_Ring_04). Compact XP/hour uses K/M/B abbreviations.
+**Live portrait indicators:** F12 enables live buffs and selects `PortraitGlow` (default) or `RingIcon` for Convention of Elements. The glow follows the observed active element, without a simulated cycle. Squirt uses a necklace symbol: gold with stacks while active, red cross at zero stacks when worn equipment is confirmed, and `?` for unknown readings. A `*` beside remote stacks means the power is observed but remote gear is not available to confirm wearing versus a cubed power. Stricken displays `ready` while equipped outside a guardian encounter, and `~` observed proc counts near a single identified live boss; this is an estimate, not exact per-target stacks, and resets when the encounter, sampling, area or focus changes. F11 aligns/resizes portrait frames. Local hero maps to the first frame automatically; other party frames follow game slot order, with explicit slot overrides available in settings. Out-of-world, stale and absent players have no live glow. CoE cycling was observed live on Barbarian and Crusader; Squirt stacks and a Stricken proc flag were observed on party members. Exact Stricken target stacks are not available from this reader. Live Stricken proc transitions and Squirt recovery from 6 to 10 stacks were observed. A controlled solo capture then observed confirmed worn Squirt stacks 0 through 10 and Stricken proc estimates increasing 0 through 16, followed by reset after guardian disappearance. Exact enemy stack totals and multi-enemy attribution remain unverified. The element types follow [Blizzard's Convention of Elements description](https://eu.diablo3.blizzard.com/en-us/item/convention-of-elements-P2_Unique_Ring_04). Compact XP/hour uses K/M/B abbreviations.
 
 Generate an illustrative preview with the actual HUD renderer (sample skill times, not a game screenshot):
 

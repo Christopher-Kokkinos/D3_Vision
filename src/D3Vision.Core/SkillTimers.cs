@@ -35,7 +35,7 @@ public sealed class SkillTimers(TimeProvider? timeProvider = null)
 
     public IReadOnlyList<SkillCountdown> Snapshot(IReadOnlyList<SkillSettings> skills) =>
         skills
-            .Take(6)
+            .Take(SkillSlots.Count)
             .Select(
                 (skill, i) =>
                 {

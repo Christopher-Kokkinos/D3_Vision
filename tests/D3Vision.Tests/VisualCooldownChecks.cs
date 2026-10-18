@@ -57,6 +57,46 @@ static class VisualCooldownChecks
             "Calibration JSON round trip"
         );
 
+        // Dark ready artwork is valid; a shaded version must still read as cooling.
+        foreach (byte brightness in new byte[] { 14, 20, 30 })
+        {
+            var darkReady = Scale(Frame(0), brightness / 120d);
+            var darkCalibration = CooldownSweepReader.Calibrate(darkReady, 0, 0, 1, 1);
+            Check(
+                reader.Read(darkReady, 0, darkCalibration).Visibility == CooldownVisibility.Ready,
+                "Naturally dark ready artwork can be calibrated and recognised"
+            );
+            var darkHalf = reader.Read(Scale(Frame(.5), brightness / 120d), 0, darkCalibration);
+            Check(
+                darkHalf.Visibility == CooldownVisibility.Cooling
+                    && Math.Abs(darkHalf.Fraction - .5) < .04,
+                "Dimming dark artwork still detects its cooldown sweep"
+            );
+            Check(
+                reader
+                    .Read(Scale(Frame(.5, true), brightness / 120d), 0, darkCalibration)
+                    .Visibility == CooldownVisibility.Unknown,
+                "Dark noisy changes cannot confirm readiness"
+            );
+            Check(
+                reader.Read(new(new byte[64 * 64 * 4], 64, 64), 0, darkCalibration).Visibility
+                    != CooldownVisibility.Ready,
+                "A black capture cannot make a calibrated dark skill ready"
+            );
+        }
+        foreach (byte brightness in new byte[] { 0, 4, 10 })
+        {
+            bool refused = false;
+            try
+            {
+                CooldownSweepReader.Calibrate(Scale(Frame(0), brightness / 120d), 0, 0, 1, 1);
+            }
+            catch (ArgumentException)
+            {
+                refused = true;
+            }
+            Check(refused, "Black and near-black selections remain uncalibratable");
+        }
         var clock = new TestClock();
         var timers = new VisualCooldownTimers(clock);
         var skills = SkillSettings.Defaults();
@@ -98,7 +138,28 @@ static class VisualCooldownChecks
             timers.Snapshot(skills)[0].IsUnknown,
             "Invalid observations never reach the renderer as NaN"
         );
+        var potionTimers = new VisualCooldownTimers(clock);
+        potionTimers.Apply(new(SkillSlots.Potion, CooldownVisibility.Ready, 0));
+        potionTimers.Apply(new(SkillSlots.Potion, CooldownVisibility.Ready, 0));
+        Check(
+            !potionTimers.Snapshot(skills)[SkillSlots.Potion].IsUnknown,
+            "Potion has its own confirmed-ready visual observation state"
+        );
+        potionTimers.Apply(new(SkillSlots.Potion, CooldownVisibility.Cooling, .5));
+        Check(
+            potionTimers.Snapshot(skills)[SkillSlots.Potion].Fraction == .5,
+            "Potion's observed cooldown stays separate from skill cooldowns"
+        );
         return count;
+    }
+
+    static CaptureFrame Scale(CaptureFrame source, double scale)
+    {
+        var pixels = source.Bgra.ToArray();
+        for (int i = 0; i < pixels.Length; i++)
+            if (i % 4 != 3)
+                pixels[i] = (byte)Math.Round(pixels[i] * scale);
+        return source with { Bgra = pixels };
     }
 
     static CaptureFrame Frame(double fraction, bool noisy = false)

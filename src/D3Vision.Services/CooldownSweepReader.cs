@@ -7,10 +7,15 @@ public sealed class CooldownSweepReader
 {
     public const int PatchSize = 64;
     const int Sectors = 72;
+
+    // Ready Diablo artwork often contains large near-black areas. Eight radial
+    // samples cover its visible strokes without requiring a uniformly bright icon.
+    const double MinimumReferenceLuminance = 12;
+    const int MinimumUsableSectors = 60;
     static readonly (int X, int Y)[][] Samples = Enumerable
         .Range(0, Sectors)
         .Select(i =>
-            new[] { .32, .55, .75 }
+            new[] { .2, .3, .4, .5, .6, .7, .8, .9 }
                 .Select(radius =>
                 {
                     double angle = (i + .5) * Math.Tau / Sectors;
@@ -64,7 +69,7 @@ public sealed class CooldownSweepReader
         );
         if (!IsUsable(calibration))
             throw new ArgumentException(
-                "This icon is too dark to calibrate. Select a ready skill's artwork without its frame or labels."
+                "Not enough visible skill artwork was found. Select the whole ready icon, excluding its border and key label. Close menus covering it; try game-window capture if the image is black."
             );
         return calibration;
     }
@@ -86,6 +91,7 @@ public sealed class CooldownSweepReader
         )
             return new(slot, CooldownVisibility.Unknown, 0);
         Span<bool> shaded = stackalloc bool[Sectors];
+        Span<bool> usableSectors = stackalloc bool[Sectors];
         int valid = 0,
             dark = 0;
         for (int i = 0; i < Sectors; i++)
@@ -96,7 +102,7 @@ public sealed class CooldownSweepReader
             {
                 int referenceOffset = (y * PatchSize + x) * 4;
                 double reference = Luminance(calibration.ReadyBgra, referenceOffset);
-                if (reference < 35)
+                if (reference < MinimumReferenceLuminance)
                     continue;
                 usable++;
                 int currentOffset = Offset(
@@ -110,16 +116,28 @@ public sealed class CooldownSweepReader
             if (usable < 2)
                 continue;
             valid++;
-            shaded[i] = darker >= 2;
+            usableSectors[i] = true;
+            shaded[i] = darker >= Math.Max(2, (int)Math.Ceiling(usable * .6));
             if (shaded[i])
                 dark++;
         }
-        if (valid < 60)
+        if (valid < MinimumUsableSectors)
             return new(slot, CooldownVisibility.Unknown, 0);
         int transitions = 0;
+        int firstUsable = -1,
+            previousUsable = -1;
         for (int i = 0; i < Sectors; i++)
-            if (shaded[i] != shaded[(i + 1) % Sectors])
+        {
+            if (!usableSectors[i])
+                continue;
+            if (firstUsable < 0)
+                firstUsable = i;
+            if (previousUsable >= 0 && shaded[i] != shaded[previousUsable])
                 transitions++;
+            previousUsable = i;
+        }
+        if (shaded[previousUsable] != shaded[firstUsable])
+            transitions++;
         // A cooldown sweep is one contiguous sector. Noisy texture changes are unknown.
         if (transitions > 4)
             return new(slot, CooldownVisibility.Unknown, 0);
@@ -137,11 +155,12 @@ public sealed class CooldownSweepReader
         foreach (var sector in Samples)
             if (
                 sector.Count(p =>
-                    Luminance(calibration.ReadyBgra, (p.Y * PatchSize + p.X) * 4) >= 35
+                    Luminance(calibration.ReadyBgra, (p.Y * PatchSize + p.X) * 4)
+                    >= MinimumReferenceLuminance
                 ) >= 2
             )
                 usable++;
-        return usable >= 60;
+        return usable >= MinimumUsableSectors;
     }
 
     static bool ValidRegion(double x, double y, double width, double height) =>

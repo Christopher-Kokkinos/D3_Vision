@@ -35,7 +35,10 @@ public readonly record struct CooldownObservation(
 public sealed class VisualCooldownTimers(TimeProvider? timeProvider = null)
 {
     readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
-    readonly State[] states = Enumerable.Range(0, 6).Select(_ => new State()).ToArray();
+    readonly State[] states = Enumerable
+        .Range(0, SkillSlots.Count)
+        .Select(_ => new State())
+        .ToArray();
 
     sealed class State
     {
@@ -50,7 +53,7 @@ public sealed class VisualCooldownTimers(TimeProvider? timeProvider = null)
 
     public void Apply(CooldownObservation observation)
     {
-        if (observation.Slot is < 0 or >= 6)
+        if (observation.Slot is < 0 or >= SkillSlots.Count)
             return;
         var state = states[observation.Slot];
         long now = clock.GetTimestamp();
@@ -143,7 +146,7 @@ public sealed class VisualCooldownTimers(TimeProvider? timeProvider = null)
 
     public IReadOnlyList<SkillCountdown> Snapshot(IReadOnlyList<SkillSettings> skills) =>
         skills
-            .Take(6)
+            .Take(SkillSlots.Count)
             .Select(
                 (skill, slot) =>
                 {

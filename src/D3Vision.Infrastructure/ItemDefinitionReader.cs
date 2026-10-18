@@ -4,6 +4,13 @@ namespace D3Vision.Infrastructure;
 internal sealed class ItemDefinitionReader(IGameMemoryReader memory, nint moduleBase)
 {
     readonly Dictionary<int, bool> cache = [];
+    readonly Dictionary<int, string> names = [];
+
+    public string Name(int gbid)
+    {
+        _ = IsSet(gbid);
+        return names.GetValueOrDefault(gbid, "");
+    }
 
     public bool? IsSet(int gbid)
     {
@@ -62,6 +69,9 @@ internal sealed class ItemDefinitionReader(IGameMemoryReader memory, nint module
                     throw new InvalidOperationException(
                         "Item definition identity failed validation."
                     );
+                int end = Array.IndexOf(definition, (byte)0, 0, 128);
+                if (end > 0)
+                    names[gbid] = System.Text.Encoding.UTF8.GetString(definition, 0, end);
                 int setId = BitConverter.ToInt32(definition, 0x174);
                 bool result = setId != 0 && setId != -1;
                 if (memory.Pointer(table + slot * 24 + 16) != asset)

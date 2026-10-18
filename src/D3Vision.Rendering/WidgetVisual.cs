@@ -252,8 +252,8 @@ public sealed partial class WidgetVisual : FrameworkElement
 
     void DrawSkills(DrawingContext dc, Brush accent)
     {
-        double cell = SingleSkillSlot is null ? ActualWidth / 6 : ActualWidth;
-        for (int i = SingleSkillSlot ?? 0; i < Math.Min(6, Skills.Count); i++)
+        double cell = SingleSkillSlot is null ? ActualWidth / SkillSlots.Count : ActualWidth;
+        for (int i = SingleSkillSlot ?? 0; i < Math.Min(SkillSlots.Count, Skills.Count); i++)
         {
             if (SingleSkillSlot is { } selected && i != selected)
                 break;
@@ -279,24 +279,6 @@ public sealed partial class WidgetVisual : FrameworkElement
                     cell - 4,
                     center: true,
                     bold: true
-                );
-            }
-            if (HoveredSkill == i && HoverProgress > 0)
-            {
-                dc.DrawRectangle(
-                    new SolidColorBrush(Color.FromArgb(110, 30, 25, 15)),
-                    null,
-                    new Rect(x + 3, ActualHeight - 2, Math.Max(0, cell - 6), 2)
-                );
-                dc.DrawRectangle(
-                    accent,
-                    null,
-                    new Rect(
-                        x + 3,
-                        ActualHeight - 2,
-                        Math.Max(0, cell - 6) * Math.Clamp(HoverProgress, 0, 1),
-                        2
-                    )
                 );
             }
             if (EditMode)
@@ -337,6 +319,49 @@ public sealed partial class WidgetVisual : FrameworkElement
                     2
                 )
             );
+        }
+        // Draw last so cooldown numbers cannot obscure the activation control.
+        if (SingleSkillSlot is { } slot && slot < Skills.Count)
+        {
+            var dot = SkillHitTesting.Dot(ActualWidth, ActualHeight);
+            bool enabled = slot < AutoCastSkills.Count && AutoCastSkills[slot];
+            var colour = enabled ? Brushes.LimeGreen : Brushes.OrangeRed;
+            var centre = new Point(dot.X, dot.Y);
+            dc.DrawEllipse(
+                new SolidColorBrush(Color.FromArgb(100, 0, 0, 0)),
+                null,
+                centre,
+                dot.Radius * 1.25,
+                dot.Radius * 1.25
+            );
+            dc.DrawEllipse(colour, new Pen(Brushes.White, 1), centre, dot.Radius, dot.Radius);
+            if (HoveredSkill == slot && HoverProgress > 0)
+            {
+                string seconds =
+                    (3 * (1 - Math.Clamp(HoverProgress, 0, 1))).ToString(
+                        "0.0",
+                        CultureInfo.InvariantCulture
+                    ) + "s";
+                double top = Math.Max(0, ActualHeight - 20);
+                dc.DrawRoundedRectangle(
+                    Brushes.Black,
+                    new Pen(colour, 1),
+                    new Rect(1, top, Math.Max(1, ActualWidth - 2), 19),
+                    3,
+                    3
+                );
+                Text(
+                    dc,
+                    seconds,
+                    13,
+                    Brushes.White,
+                    1,
+                    top,
+                    ActualWidth - 2,
+                    center: true,
+                    bold: true
+                );
+            }
         }
     }
 

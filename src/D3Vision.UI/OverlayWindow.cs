@@ -14,7 +14,34 @@ public sealed class OverlayWindow : Window
 {
     readonly MainViewModel vm;
     readonly Canvas canvas = new();
-    readonly MyriamGuideView myriamGuide = new() { Visibility = Visibility.Collapsed };
+    readonly TextBlock skillSetupLabel = InventoryLabel();
+    readonly TextBlock inventoryStatusLabel = InventoryLabel();
+    readonly TextBlock dropLabel = InventoryLabel();
+    readonly TextBlock salvageAllLabel = InventoryLabel();
+    readonly TextBlock salvageNormalLabel = InventoryLabel();
+    readonly InventoryHoverTrigger inventoryHover = new();
+    public event Action<InventoryAction>? InventoryActionRequested;
+
+    static TextBlock InventoryLabel() =>
+        new()
+        {
+            FontSize = 15,
+            FontWeight = FontWeights.Black,
+            Foreground = Brushes.Black,
+            Background = new SolidColorBrush(Color.FromArgb(210, 224, 197, 145)),
+            Padding = new Thickness(6, 3, 6, 3),
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed,
+        };
+
+    public void ResetInventoryHover() => inventoryHover.Reset();
+
+    readonly MyriamGuideView myriamGuide = new()
+    {
+        Visibility = Visibility.Collapsed,
+        IsHitTestVisible = false,
+        Focusable = false,
+    };
     readonly Dictionary<WidgetState, WidgetVisual> visuals = [];
     readonly List<WidgetVisual> skillAnchors = [];
     HwndSource? source;
@@ -224,10 +251,10 @@ public sealed class OverlayWindow : Window
                     var slots = new UniformGrid
                     {
                         Rows = 1,
-                        Columns = 6,
+                        Columns = SkillSlots.Count,
                         Margin = new Thickness(0, 10, 0, 8),
                     };
-                    for (int i = 0; i < 6; i++)
+                    for (int i = 0; i < SkillSlots.Count; i++)
                     {
                         int slot = i;
                         var hit = new Border
@@ -248,7 +275,7 @@ public sealed class OverlayWindow : Window
             }
             canvas.Children.Add(grid);
         }
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < SkillSlots.Count; i++)
         {
             var anchor = new WidgetVisual
             {
@@ -260,7 +287,12 @@ public sealed class OverlayWindow : Window
             skillAnchors.Add(anchor);
             canvas.Children.Add(anchor);
         }
+        canvas.Children.Add(skillSetupLabel);
         canvas.Children.Add(myriamGuide);
+        canvas.Children.Add(inventoryStatusLabel);
+        canvas.Children.Add(dropLabel);
+        canvas.Children.Add(salvageAllLabel);
+        canvas.Children.Add(salvageNormalLabel);
         Refresh();
     }
 
@@ -269,31 +301,46 @@ public sealed class OverlayWindow : Window
         : Math.Abs(value - edge) < 12 ? edge
         : value;
 
-    public int? HoveredSkill(Native.Point cursor, Native.Rect captureBounds)
+    public int? HoveredSkill(Native.Point cursor)
     {
-        var widget = vm.Settings.Widgets.FirstOrDefault(w =>
-            w.Kind == WidgetKind.Cooldowns && w.Enabled
-        );
-        if (widget is null)
+        if (!vm.Settings.Widgets.Any(w => w.Kind == WidgetKind.Cooldowns && w.Enabled))
             return null;
-        double width = captureBounds.Right - captureBounds.Left;
-        double height = captureBounds.Bottom - captureBounds.Top;
-        if (width <= 0 || height <= 0)
-            return null;
-        return SkillHitTesting.Hit(
-            vm.Settings.Skills,
-            (cursor.X - captureBounds.Left) / width,
-            (cursor.Y - captureBounds.Top) / height,
-            width / height,
-            vm.Settings.WholeScreen,
-            vm.Settings.Monitor
-        );
+        // Hit-test the actual rendered anchors. Their local geometry already includes
+        // monitor DPI and capture transforms, so the hover target cannot drift off its dot.
+        int? hit = null;
+        for (int slot = 0; slot < skillAnchors.Count; slot++)
+        {
+            var visual = skillAnchors[slot];
+            if (
+                visual.Visibility != Visibility.Visible
+                || visual.ActualWidth <= 0
+                || visual.ActualHeight <= 0
+            )
+                continue;
+            var point = visual.PointFromScreen(new Point(cursor.X, cursor.Y));
+            if (
+                !SkillHitTesting.ContainsDot(
+                    visual.ActualWidth,
+                    visual.ActualHeight,
+                    point.X,
+                    point.Y
+                )
+            )
+                continue;
+            if (hit is not null)
+                return null;
+            hit = slot;
+        }
+        return hit;
     }
 
     public void Refresh()
     {
+        UpdateInventoryControls();
         if (
             vm.Settings.MyriamGuideEnabled
+            && vm.Settings.ClickThrough
+            && !vm.MyriamGuideHidden
             && vm.MyriamDetected
             && GameInput.TryGetGameClientBounds(out var guideBounds)
         )
@@ -301,10 +348,10 @@ public sealed class OverlayWindow : Window
             myriamGuide.Visibility = Visibility.Visible;
             var a = PointFromScreen(new Point(guideBounds.Left, guideBounds.Top));
             var b = PointFromScreen(new Point(guideBounds.Right, guideBounds.Bottom));
-            myriamGuide.Width = Math.Clamp((b.X - a.X) * .40, 280, 760);
-            myriamGuide.Height = Math.Max(160, (b.Y - a.Y) * .78);
+            myriamGuide.Width = Math.Clamp((b.X - a.X) * .30, 240, 600);
+            myriamGuide.Height = Math.Max(160, (b.Y - a.Y) * .65);
             Canvas.SetLeft(myriamGuide, (a.X + b.X - myriamGuide.Width) / 2);
-            Canvas.SetTop(myriamGuide, (a.Y + b.Y - myriamGuide.Height) / 2);
+            Canvas.SetTop(myriamGuide, a.Y + (b.Y - a.Y) * .05);
             myriamGuide.Update(vm.MyriamBuild, vm.MyriamStatus);
         }
         else
@@ -427,6 +474,124 @@ public sealed class OverlayWindow : Window
         }
     }
 
+    void UpdateInventoryControls()
+    {
+        inventoryStatusLabel.Visibility = Visibility.Collapsed;
+        dropLabel.Visibility =
+            salvageAllLabel.Visibility =
+            salvageNormalLabel.Visibility =
+                Visibility.Collapsed;
+        if (
+            !IsVisible
+            || !vm.Settings.ClickThrough
+            || !GameInput.TryGetGameClientBounds(out var bounds)
+            || !GameInput.TryGetCursor(out var cursor)
+        )
+        {
+            inventoryHover.Reset();
+            return;
+        }
+        double scale = (bounds.Bottom - bounds.Top) / 1080d;
+        if (
+            (vm.Settings.AutoSalvageEnabled || vm.Settings.DropAllEnabled)
+            && (vm.InventoryBusy || Environment.TickCount64 - vm.InventoryStatusSeen < 12000)
+        )
+        {
+            var statusPosition = PointFromScreen(
+                new Point(
+                    bounds.Left + (bounds.Right - bounds.Left) / 2d - 320 * scale,
+                    bounds.Bottom - 230 * scale
+                )
+            );
+            Canvas.SetLeft(inventoryStatusLabel, statusPosition.X);
+            Canvas.SetTop(inventoryStatusLabel, statusPosition.Y);
+            inventoryStatusLabel.Width = 360;
+            inventoryStatusLabel.Height = double.NaN;
+            inventoryStatusLabel.FontSize = 12;
+            inventoryStatusLabel.TextWrapping = TextWrapping.Wrap;
+            inventoryStatusLabel.Text = vm.InventoryStatus;
+            inventoryStatusLabel.Visibility = Visibility.Visible;
+        }
+        bool salvage =
+            vm.Settings.AutoSalvageEnabled && Environment.TickCount64 - vm.BlacksmithSeen < 2500;
+        InventoryAction? hovered = null;
+        void Place(
+            TextBlock label,
+            string caption,
+            double x,
+            double y,
+            double width,
+            InventoryAction action
+        )
+        {
+            var a = PointFromScreen(new Point(x, y));
+            var b = PointFromScreen(new Point(x + width * scale, y + 30 * scale));
+            label.Width = b.X - a.X;
+            label.Height = b.Y - a.Y;
+            label.FontSize =
+                15
+                * scale
+                / (
+                    PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice.M11
+                    ?? 1
+                );
+            Canvas.SetLeft(label, a.X);
+            Canvas.SetTop(label, a.Y);
+            label.Visibility = Visibility.Visible;
+            if (
+                cursor.X >= x
+                && cursor.X < x + width * scale
+                && cursor.Y >= y
+                && cursor.Y < y + 30 * scale
+            )
+                hovered = action;
+            label.Text = vm.InventoryBusy ? "STOP: ESC" : caption;
+        }
+        if (vm.Settings.DropAllEnabled)
+            Place(
+                dropLabel,
+                "DROP",
+                bounds.Left + (bounds.Right - bounds.Left) / 2d - 480 * scale,
+                bounds.Bottom - 142 * scale,
+                120,
+                InventoryAction.DropAll
+            );
+        if (salvage)
+        {
+            Place(
+                salvageAllLabel,
+                "SALVAGE ALL",
+                bounds.Left + 50 * scale,
+                bounds.Top + 570 * scale,
+                360,
+                InventoryAction.SalvageAll
+            );
+            Place(
+                salvageNormalLabel,
+                "SALVAGE: KEEP ANCIENT / PRIMAL",
+                bounds.Left + 50 * scale,
+                bounds.Top + 610 * scale,
+                360,
+                InventoryAction.SalvageNormal
+            );
+        }
+        // Keep a completed dwell latched while the operation runs. An empty plan
+        // must not repeat continuously if the pointer stays over its label.
+        if (vm.InventoryBusy)
+            return;
+        var request = inventoryHover.Update(hovered);
+        if (inventoryHover.Progress > 0 && hovered is { } action)
+        {
+            var label =
+                action == InventoryAction.DropAll ? dropLabel
+                : action == InventoryAction.SalvageAll ? salvageAllLabel
+                : salvageNormalLabel;
+            label.Text += $" {3 * (1 - inventoryHover.Progress):0.0}s";
+        }
+        if (request is { } selected)
+            InventoryActionRequested?.Invoke(selected);
+    }
+
     void UpdateSkillAnchors(IReadOnlyList<SkillCountdown> skills, IReadOnlyList<bool> automatic)
     {
         var widget = vm.Settings.Widgets.FirstOrDefault(w =>
@@ -442,6 +607,11 @@ public sealed class OverlayWindow : Window
             && area.WholeScreen == vm.Settings.WholeScreen
             && (!area.WholeScreen || area.Monitor == vm.Settings.Monitor)
             && GameInput.IsDiabloForeground();
+        skillSetupLabel.Visibility = Visibility.Collapsed;
+        int calibrated = vm
+            .Settings.Skills.Take(SkillSlots.Count)
+            .Count(skill => skill.Calibration is not null);
+        int visibleDots = 0;
         for (int i = 0; i < skillAnchors.Count; i++)
         {
             var visual = skillAnchors[i];
@@ -481,7 +651,72 @@ public sealed class OverlayWindow : Window
             visual.FontName = vm.Settings.Font;
             visual.Opacity = widget!.Opacity;
             visual.Visibility = Visibility.Visible;
+            visibleDots++;
             visual.InvalidateVisual();
+        }
+        vm.AutoCastStatus =
+            vm.AutoCastBlockReason is { } reason ? "Auto-cast paused: " + reason
+            : calibrated == 0
+                ? "Auto-cast setup: 0/7 icons saved. F12 > Calibrate ready skill icons. Each selection now saves automatically."
+            : !vm.Settings.ClickThrough ? "Auto-cast paused: press F11 to lock the overlay."
+            : vm.Settings.CooldownMode != CooldownMode.VisualRead
+                ? "Auto-cast requires VisualRead mode in Settings."
+            : widget is null ? "Auto-cast requires the Cooldowns widget to be enabled."
+            : area is null || Environment.TickCount64 - vm.CaptureAreaSeen > 500
+                ? "Auto-cast: waiting for a fresh capture with screen coordinates."
+            : !GameInput.IsDiabloForeground()
+                ? $"Auto-cast: {calibrated}/7 icons saved. Return to Diablo III to see the dots."
+            : visibleDots == 0
+                ? "Auto-cast: saved icons do not match this capture mode, monitor or aspect ratio. Recalibrate for this capture."
+            : $"Auto-cast: {visibleDots}/7 dots ready. Hover a red dot for 3 seconds, then move away. Check your skill key bindings in Settings.";
+        if (vm.AutoCastBlockReason is null && vm.AutoCast.HoverSlot is { } hovered)
+        {
+            string key = vm.Settings.Skills[hovered].Key;
+            vm.AutoCastStatus =
+                vm.AutoCast.HoverFraction > 0
+                    ? $"Auto-cast {key}: hover {3 * (1 - vm.AutoCast.HoverFraction):0.0}s more to toggle."
+                    : $"Auto-cast {key}: {(vm.AutoCast.IsEnabled(hovered) ? "enabled" : "inactive")}. Move away before hovering again.";
+        }
+        var armed = vm
+            .AutoCast.EnabledSnapshot()
+            .Select((enabled, slot) => (enabled, slot))
+            .Where(pair => pair.enabled)
+            .Select(pair => pair.slot)
+            .ToArray();
+        if (vm.AutoCastBlockReason is null && vm.AutoCast.HoverSlot is null && armed.Length > 0)
+        {
+            vm.AutoCastStatus =
+                "Auto-cast: "
+                + string.Join(
+                    "; ",
+                    armed.Select(slot =>
+                        $"{vm.Settings.Skills[slot].Key} {(skills[slot].IsUnknown ? "waiting for readable icon" : skills[slot].Fraction > 0 ? "cooling" : "ready")}"
+                    )
+                );
+        }
+        System.Windows.Automation.AutomationProperties.SetHelpText(
+            this,
+            vm.AutoCastStatus + " " + vm.AutoCastLastInput
+        );
+        if (
+            (visibleDots == 0 || vm.AutoCastBlockReason is not null || armed.Length > 0)
+            && GameInput.TryGetGameClientBounds(out var bounds)
+        )
+        {
+            var position = PointFromScreen(
+                new Point(
+                    bounds.Left + (bounds.Right - bounds.Left) * .5,
+                    bounds.Bottom - (bounds.Bottom - bounds.Top) * .19
+                )
+            );
+            skillSetupLabel.Width = 580;
+            skillSetupLabel.TextWrapping = TextWrapping.Wrap;
+            skillSetupLabel.FontSize = 12;
+            skillSetupLabel.Text =
+                vm.AutoCastStatus + (armed.Length > 0 ? " " + vm.AutoCastLastInput : "");
+            Canvas.SetLeft(skillSetupLabel, position.X - 290);
+            Canvas.SetTop(skillSetupLabel, position.Y);
+            skillSetupLabel.Visibility = Visibility.Visible;
         }
     }
 }

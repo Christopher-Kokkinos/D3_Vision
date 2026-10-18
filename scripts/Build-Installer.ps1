@@ -1,5 +1,5 @@
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '1.1.1',
+    [ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '1.1.2',
     [string]$RuntimeVersion = '',
     [string]$CompilerPath = '',
     [switch]$Verify
@@ -28,6 +28,7 @@ $output = Join-Path $outputDir "D3Vision-Setup-$Version-win-x64.exe"
 & dotnet publish (Join-Path $workspace 'src\D3Vision.UI\D3Vision.UI.csproj') -c Release -r win-x64 --self-contained true --artifacts-path (Join-Path $buildRoot 'build') -o $publish "-p:InstallerRuntimeVersion=$RuntimeVersion" "-p:CustomAfterMicrosoftCommonTargets=$workspace\packaging\Installer.Runtime.targets" "-p:Version=$Version" -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false
 if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
 Copy-Item (Join-Path $workspace 'packaging\INSTALL.txt') $publish
+Copy-Item (Join-Path $workspace 'CHANGELOG.md') $publish
 $files = @(Get-ChildItem $publish -Recurse -File)
 $manifest = @($files | ForEach-Object {
     $relative = $_.FullName.Substring($publish.Length + 1)
@@ -64,7 +65,7 @@ if ($Verify) {
 }
 ((Get-FileHash $output -Algorithm SHA256).Hash + '  ' + (Split-Path $output -Leaf)) | Set-Content "$output.sha256" -Encoding ASCII
 $zip = Join-Path $outputDir "D3Vision-$Version-win-x64.zip"
-$zipFiles = @($output, "$output.sha256", (Join-Path $workspace 'packaging\INSTALL.txt'))
+$zipFiles = @($output, "$output.sha256", (Join-Path $workspace 'packaging\INSTALL.txt'), (Join-Path $workspace 'CHANGELOG.md'))
 $releaseNotes = Join-Path $workspace "docs\releases\v$Version.md"
 if (Test-Path $releaseNotes) { $zipFiles += $releaseNotes }
 Compress-Archive -LiteralPath $zipFiles -DestinationPath $zip -CompressionLevel Optimal -Force

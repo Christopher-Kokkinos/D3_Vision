@@ -32,7 +32,29 @@ public sealed class MainViewModel(Settings settings, SessionStats stats) : Obser
         get => kadalaStatus;
         set => Set(ref kadalaStatus, value);
     }
+    string inventoryStatus = "Inventory automation is disabled.";
+    public string InventoryStatus
+    {
+        get => inventoryStatus;
+        set
+        {
+            if (Set(ref inventoryStatus, value))
+                InventoryStatusSeen = Environment.TickCount64;
+        }
+    }
+    public long InventoryStatusSeen { get; private set; }
+    public long BlacksmithSeen { get; set; }
+    public bool InventoryBusy { get; set; }
+    public string AutoCastLastInput { get; set; } = "";
+    public string? AutoCastBlockReason { get; set; }
+    string autoCastStatus = "Auto-cast: waiting for game capture.";
+    public string AutoCastStatus
+    {
+        get => autoCastStatus;
+        set => Set(ref autoCastStatus, value);
+    }
     public bool MyriamDetected { get; set; }
+    public bool MyriamGuideHidden { get; set; }
     public LeaderboardBuild? MyriamBuild { get; set; }
     public string MyriamStatus { get; set; } = "Waiting for Myriam Enchant.";
     public List<double> XpSamples { get; } = [];

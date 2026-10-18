@@ -11,6 +11,8 @@ internal sealed class KadalaRunner
     sealed record Click(int Offer, long Timestamp);
 
     Click? pendingClick;
+    long lastInteraction = Environment.TickCount64 - 1500;
+    public bool IsEngaged => Environment.TickCount64 - Interlocked.Read(ref lastInteraction) < 1500;
 
     public void RecordLeftClick(int x, int y)
     {
@@ -23,7 +25,6 @@ internal sealed class KadalaRunner
 
     readonly KadalaHoverBuyer buyer = new();
     readonly DiabloMapReader reader = new();
-    readonly GameSkillCaster input = new();
 
     public async Task RunAsync(
         Func<bool> allowed,
@@ -138,9 +139,10 @@ internal sealed class KadalaRunner
                         recognizedUntil = 0;
                         continue;
                     }
+                    Interlocked.Exchange(ref lastInteraction, Environment.TickCount64);
                     // Rehash only when establishing/re-establishing a supported process.
                     snapshot ??= reader.Capture();
-                    int count = reader.ReadInventoryCount(snapshot);
+                    int count = reader.ReadBackpack(snapshot).Count;
                     var click = Interlocked.Exchange(ref pendingClick, null);
                     bool clicked =
                         click is not null
@@ -157,9 +159,27 @@ internal sealed class KadalaRunner
                             buyer.Reset();
                             continue;
                         }
-                        var result = await input.CastAsync(5, token, requireReleasedMouse: true);
-                        if (result != SkillCastResult.Sent)
-                            buyer.Stop("Kadala stopped: purchase input was skipped or rejected.");
+                        var rapid = new GameWindowInventoryInput(bounds);
+                        bool Guard() =>
+                            allowed()
+                            && GameInput.TryGetGameClientBounds(out var now)
+                            && now.Left == bounds.Left
+                            && now.Top == bounds.Top
+                            && now.Right == bounds.Right
+                            && now.Bottom == bounds.Bottom
+                            && GameInput.TryGetCursor(out var point)
+                            && Offer(point.X - bounds.Left, point.Y - bounds.Top, scale) == offer;
+                        // A bounded burst is acknowledged by the next inventory read. Full
+                        // inventories / exhausted shards stop through the existing no-progress latch.
+                        int burst = Math.Clamp((60 - count) / 2, 1, 4);
+                        for (int i = 0; i < burst; i++)
+                            rapid.Click(
+                                cursor.X - bounds.Left,
+                                cursor.Y - bounds.Top,
+                                true,
+                                Guard,
+                                token
+                            );
                     }
                     status(buyer.Status);
                 }

@@ -4,8 +4,8 @@ namespace D3Vision.Core;
 public sealed class AutoCastController(TimeProvider? timeProvider = null)
 {
     readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
-    readonly bool[] enabled = new bool[6];
-    readonly long?[] lastAttempt = new long?[6];
+    readonly bool[] enabled = new bool[SkillSlots.Count];
+    readonly long?[] lastAttempt = new long?[SkillSlots.Count];
     int? hoverSlot;
     long hoverStarted;
     long? lastHoverSample;
@@ -13,7 +13,7 @@ public sealed class AutoCastController(TimeProvider? timeProvider = null)
     int nextSlot;
     long? lastDispatch;
 
-    public bool IsEnabled(int slot) => slot is >= 0 and < 6 && enabled[slot];
+    public bool IsEnabled(int slot) => slot is >= 0 and < SkillSlots.Count && enabled[slot];
 
     public IReadOnlyList<bool> EnabledSnapshot() => enabled.ToArray();
 
@@ -23,7 +23,7 @@ public sealed class AutoCastController(TimeProvider? timeProvider = null)
     public bool UpdateHover(int? slot, bool allowed)
     {
         long now = clock.GetTimestamp();
-        if (!allowed || slot is null or < 0 or >= 6)
+        if (!allowed || slot is null or < 0 or >= SkillSlots.Count)
         {
             ResetHover();
             return false;
@@ -63,9 +63,9 @@ public sealed class AutoCastController(TimeProvider? timeProvider = null)
             && clock.GetElapsedTime(dispatched, now).TotalSeconds < .2
         )
             return null;
-        for (int offset = 0; offset < 6; offset++)
+        for (int offset = 0; offset < SkillSlots.Count; offset++)
         {
-            int slot = (nextSlot + offset) % 6;
+            int slot = (nextSlot + offset) % SkillSlots.Count;
             if (slot >= skills.Count || !enabled[slot])
                 continue;
             var skill = skills[slot];
@@ -85,7 +85,7 @@ public sealed class AutoCastController(TimeProvider? timeProvider = null)
                 continue;
             lastAttempt[slot] = now;
             lastDispatch = now;
-            nextSlot = (slot + 1) % 6;
+            nextSlot = (slot + 1) % SkillSlots.Count;
             return slot;
         }
         return null;

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:uap6="http://schemas.microsoft.com/appx/manifest/uap/windows10/6" IgnorableNamespaces="uap rescap uap6">
- <Identity Name="D3Vision.Desktop" Publisher="CN=D3Vision" Version="1.1.1.0" ProcessorArchitecture="x64" />
+ <Identity Name="D3Vision.Desktop" Publisher="CN=D3Vision" Version="1.1.2.0" ProcessorArchitecture="x64" />
  <Properties><DisplayName>D3Vision</DisplayName><PublisherDisplayName>D3Vision</PublisherDisplayName><Logo>Assets/StoreLogo.png</Logo></Properties>
  <Dependencies><TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" /></Dependencies>
  <Resources><Resource Language="en-us" /></Resources>

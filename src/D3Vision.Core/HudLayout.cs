@@ -57,6 +57,7 @@ public sealed class SkillSettings
             new() { Key = "4" },
             new() { Key = "LMB", DurationSeconds = 0 },
             new() { Key = "RMB", DurationSeconds = 0 },
+            new() { Key = "D", DurationSeconds = 30 },
         ];
 }
 
@@ -144,7 +145,7 @@ public static class HudLayout
             }
             settings.PortraitLayoutVersion = 1;
         }
-        while (settings.Skills.Count < 6)
+        while (settings.Skills.Count < SkillSlots.Count)
             settings.Skills.Add(SkillSettings.Defaults()[settings.Skills.Count]);
     }
 

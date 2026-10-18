@@ -27,6 +27,7 @@ public partial class App : Application
     Task? mapTracking;
     Task? buffTracking;
     Task? kadalaTracking;
+    InventoryAutomationRunner inventoryRunner = null!;
     readonly KadalaRunner kadalaRunner = new();
     readonly DiabloMapReader mapReader = new();
     BlizzardBuildService buildProvider = null!;
@@ -58,9 +59,23 @@ public partial class App : Application
             buildProvider = new BlizzardBuildService(store);
             overlay = new(vm);
             MainWindow = overlay;
+            inventoryRunner = new(
+                vm,
+                () =>
+                    !exiting
+                    && !calibrating
+                    && settings is null
+                    && overlay.IsVisible
+                    && vm.Settings.ClickThrough
+                    && GameInput.IsDiabloForeground(),
+                stop.Token
+            );
+            overlay.InventoryActionRequested += action => inventoryRunner.Start(action);
             overlay.Hotkey += id =>
             {
                 vm.AutoCast.StopAll();
+                inventoryRunner.Stop();
+                overlay.ResetInventoryHover();
                 if (id == 0)
                 {
                     if (overlay.IsVisible)
@@ -75,6 +90,11 @@ public partial class App : Application
                 }
                 else if (id == 2)
                     OpenSettings();
+                else if (id == 4)
+                {
+                    vm.MyriamGuideHidden = !vm.MyriamGuideHidden;
+                    overlay.Refresh();
+                }
             };
             overlay.SkillInput += key =>
             {
@@ -95,6 +115,8 @@ public partial class App : Application
             };
             overlay.PhysicalLeftClick += (x, y) =>
             {
+                if (inventoryRunner.Busy)
+                    inventoryRunner.Stop();
                 if (
                     !exiting
                     && !calibrating
@@ -118,6 +140,7 @@ public partial class App : Application
                             && overlay.IsVisible
                             && vm.Settings.ClickThrough
                             && vm.Settings.KadalaHoverBuy
+                            && !inventoryRunner.Busy
                         ),
                     () => Dispatcher.Invoke(() => vm.Settings.KadalaMode),
                     message => Dispatcher.BeginInvoke(() => vm.KadalaStatus = message),
@@ -147,6 +170,17 @@ public partial class App : Application
                     )
                 )
                     DismissMyriam();
+                vm.InventoryBusy = inventoryRunner.Busy;
+                if (
+                    vm.InventoryBusy
+                    && (
+                        !GameInput.IsDiabloForeground()
+                        || settings is not null
+                        || !overlay.IsVisible
+                        || !vm.Settings.ClickThrough
+                    )
+                )
+                    inventoryRunner.Stop();
                 UpdateAutoCast();
                 overlay.MaintainTopmost();
                 overlay.Refresh();
@@ -187,6 +221,8 @@ public partial class App : Application
                 service.TextRecognized += text =>
                     Dispatcher.Invoke(() =>
                     {
+                        if (InventoryScreenRecognition.Salvage(text))
+                            vm.BlacksmithSeen = Environment.TickCount64;
                         ObserveMyriam(text);
                         service.Apply(text, vm.Stats);
                         overlay.Refresh();
@@ -213,7 +249,7 @@ public partial class App : Application
                                 Dispatcher.Invoke<IReadOnlyList<SkillCalibration?>>(() =>
                                     vm.Settings.CooldownMode == CooldownMode.VisualRead
                                         ? vm
-                                            .Settings.Skills.Take(6)
+                                            .Settings.Skills.Take(SkillSlots.Count)
                                             .Select(s => s.Calibration)
                                             .ToArray()
                                         : []
@@ -249,6 +285,8 @@ public partial class App : Application
 
     void OpenSettings()
     {
+        inventoryRunner.Stop();
+        overlay.ResetInventoryHover();
         vm.AutoCast.StopAll();
         if (settings is not null)
         {
@@ -367,26 +405,32 @@ public partial class App : Application
 
     void UpdateAutoCast()
     {
-        if (vm.Settings.KadalaHoverBuy || vm.MyriamDetected)
+        void Stop(string reason)
         {
+            vm.AutoCastBlockReason = reason;
             vm.AutoCast.StopAll();
+        }
+        var blocked = AutoCastAvailability.BlockReason(
+            exiting,
+            calibrating,
+            settings?.IsActive == true,
+            overlay.IsVisible,
+            vm.Settings.ClickThrough,
+            vm.Settings.CooldownMode == CooldownMode.VisualRead,
+            vm.Settings.Widgets.Any(w => w.Kind == WidgetKind.Cooldowns && w.Enabled),
+            inventoryRunner.Busy || kadalaRunner.IsEngaged || vm.MyriamDetected
+        );
+        if (blocked is not null)
+        {
+            Stop(blocked);
             return;
         }
-        bool allowed =
-            !exiting
-            && !calibrating
-            && settings is null
-            && overlay.IsVisible
-            && vm.Settings.ClickThrough
-            && vm.Settings.CooldownMode == CooldownMode.VisualRead
-            && vm.Settings.Widgets.Any(w => w.Kind == WidgetKind.Cooldowns && w.Enabled);
         if (
-            !allowed
-            || !GameInput.TryGetGameBounds(out var gameBounds)
+            !GameInput.TryGetGameBounds(out var gameBounds)
             || !GameInput.TryGetCursor(out var cursor)
         )
         {
-            vm.AutoCast.StopAll();
+            Stop("Return to Diablo III to use the skill dots.");
             return;
         }
         if (
@@ -396,7 +440,7 @@ public partial class App : Application
             || (captureArea.WholeScreen && captureArea.Monitor != vm.Settings.Monitor)
         )
         {
-            vm.AutoCast.StopAll();
+            Stop("Waiting for fresh capture coordinates matching the game window.");
             return;
         }
         var captureBounds = new Native.Rect
@@ -416,7 +460,7 @@ public partial class App : Application
             )
         )
         {
-            vm.AutoCast.StopAll();
+            Stop("Waiting for fresh capture coordinates matching the game window.");
             return;
         }
         if (
@@ -429,10 +473,11 @@ public partial class App : Application
             )
         )
         {
-            vm.AutoCast.StopAll();
+            Stop("Waiting for fresh capture coordinates matching the game window.");
             return;
         }
-        vm.AutoCast.UpdateHover(overlay.HoveredSkill(cursor, captureBounds), true);
+        vm.AutoCastBlockReason = null;
+        vm.AutoCast.UpdateHover(overlay.HoveredSkill(cursor), true);
         bool cursorInside =
             cursor.X >= gameBounds.Left
             && cursor.X < gameBounds.Right
@@ -449,10 +494,25 @@ public partial class App : Application
     {
         try
         {
-            if (await skillCaster.CastAsync(slot, stop.Token) == SkillCastResult.Failed)
+            ushort? key = null;
+            if (SkillSlots.IsKeyboard(slot))
+            {
+                if (!SkillBindings.TryKey(vm.Settings.Skills[slot].Key, out var selected))
+                {
+                    vm.AutoCast.StopAll();
+                    vm.Status =
+                        "Auto-cast stopped: set a letter or number for each keyboard skill in Settings.";
+                    return;
+                }
+                key = selected;
+            }
+            var result = await skillCaster.CastAsync(slot, stop.Token, virtualKey: key);
+            vm.AutoCastLastInput =
+                $"{vm.Settings.Skills[slot].Key}: {result}. {skillCaster.LastReason}";
+            if (result == SkillCastResult.Failed)
             {
                 vm.AutoCast.StopAll();
-                vm.Status = "Auto-cast stopped: the input could not be sent to the game.";
+                vm.Status = "Auto-cast stopped: " + skillCaster.LastReason;
             }
         }
         catch (OperationCanceledException) { }
@@ -496,9 +556,9 @@ public partial class App : Application
             new SkillCalibrationWindow(
                 frame,
                 vm.Settings.Skills,
-                calibrations =>
+                async calibrations =>
                 {
-                    for (int i = 0; i < Math.Min(6, calibrations.Count); i++)
+                    for (int i = 0; i < Math.Min(SkillSlots.Count, calibrations.Count); i++)
                         vm.Settings.Skills[i].Calibration = calibrations[i] is { } c
                             ? c with
                             {
@@ -508,7 +568,8 @@ public partial class App : Application
                             : null;
                     vm.Settings.CooldownMode = CooldownMode.VisualRead;
                     vm.ResetCooldowns();
-                    _ = SaveSafe();
+                    await store.SaveAsync("settings", vm.Settings);
+                    vm.Refresh();
                     overlay.Refresh();
                 }
             )
@@ -687,6 +748,8 @@ public partial class App : Application
             await buffTracking;
         if (kadalaTracking is not null)
             await kadalaTracking;
+        if (inventoryRunner.Running is { } inventoryTask)
+            await inventoryTask;
         await Task.WhenAll(myriamTasks);
         buildProvider.Dispose();
         if (autoCastTask is not null)

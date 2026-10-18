@@ -11,10 +11,112 @@ static class AutoCastChecks
                 throw new Exception(message);
             count++;
         }
+        foreach (double aspect in new[] { 16d / 9, 21d / 9, 4d / 3 })
+        {
+            var skills = SkillSettings.Defaults();
+            skills[0].Calibration = new(.2, .8, .04, .07, [], aspect, false);
+            var dot = SkillHitTesting.Dot(.04 * aspect, .07);
+            double x = .2 + dot.X / aspect,
+                y = .8 + dot.Y;
+            Check(
+                SkillHitTesting.HitDot(skills, x, y, aspect) == 0,
+                "Rendered dot centre arms the matching skill at each aspect ratio"
+            );
+            Check(
+                SkillHitTesting.HitDot(skills, .22, .835, aspect) is null,
+                "Hovering the skill artwork away from its dot cannot arm it"
+            );
+            Check(
+                SkillHitTesting.HitDot(skills, x, y + dot.Radius * 1.05, aspect) is null,
+                "Hover target ends at the visible circle, not a rectangular corner"
+            );
+            Check(
+                SkillHitTesting.HitDot(skills, x, y, aspect, true) is null,
+                "Dot hit testing rejects a calibration from another capture mode"
+            );
+        }
+        Check(
+            SkillHitTesting.HitDot(SkillSettings.Defaults(), .5, .9, 16d / 9) is null,
+            "Uncalibrated skills cannot silently arm"
+        );
+        var savedSettings = new Settings { WholeScreen = true, Monitor = 1 };
+        for (int i = 0; i < SkillSlots.Count; i++)
+            savedSettings.Skills[i].Calibration = new(
+                .2 + i * .08,
+                .9,
+                .05,
+                .05,
+                new byte[64 * 64 * 4],
+                16d / 9,
+                true,
+                1
+            );
+        var loadedSettings = System.Text.Json.JsonSerializer.Deserialize<Settings>(
+            System.Text.Json.JsonSerializer.Serialize(savedSettings)
+        )!;
+        foreach (var pair in loadedSettings.Skills.Select((skill, slot) => (skill, slot)))
+        {
+            var calibration = pair.skill.Calibration!;
+            var dot = SkillHitTesting.Dot(calibration.Width * 16d / 9, calibration.Height);
+            Check(
+                calibration.ReadyBgra.Length == 64 * 64 * 4
+                    && SkillHitTesting.HitDot(
+                        loadedSettings.Skills,
+                        calibration.X + dot.X / (16d / 9),
+                        calibration.Y + dot.Y,
+                        16d / 9,
+                        true,
+                        1
+                    ) == pair.slot,
+                "Saved calibration pixels and capture metadata restore a matching dot target"
+            );
+        }
+        Check(
+            AutoCastAvailability.BlockReason(false, false, false, true, true, true, true, false)
+                is null,
+            "Settings left open behind the foreground game does not block re-arming"
+        );
+        Check(
+            AutoCastAvailability.BlockReason(false, false, true, true, true, true, true, false)
+                is not null,
+            "Focused Settings still blocks auto-cast"
+        );
+        Check(
+            AutoCastAvailability.BlockReason(false, true, false, true, true, true, true, false)
+                is not null,
+            "An open calibration session still blocks auto-cast"
+        );
+        Check(
+            AutoCastAvailability.BlockReason(false, false, false, true, false, true, true, false)
+                is not null,
+            "Unlocked overlay still blocks auto-cast"
+        );
+        foreach (double dpiScale in new[] { 1d, 1.25, 1.5, 2d })
+        {
+            double width = 48 / dpiScale,
+                height = 48 / dpiScale;
+            var dot = SkillHitTesting.Dot(width, height);
+            // PointFromScreen maps the visible physical centre back into these local units.
+            double physicalX = 800 + dot.X * dpiScale,
+                physicalY = 1000 + dot.Y * dpiScale;
+            Check(
+                SkillHitTesting.ContainsDot(
+                    width,
+                    height,
+                    (physicalX - 800) / dpiScale,
+                    (physicalY - 1000) / dpiScale
+                ),
+                "Physical cursor at rendered dot centre remains interactive at each monitor DPI"
+            );
+            Check(
+                !SkillHitTesting.ContainsDot(width, height, dot.X - dot.Radius * 1.1, dot.Y),
+                "The rendered local dot target excludes neighbouring artwork"
+            );
+        }
         var clock = new TestClock();
         var control = new AutoCastController(clock);
         var ready = Enumerable
-            .Range(1, 6)
+            .Range(1, SkillSlots.Count)
             .Select(i => new SkillCountdown(i.ToString(), 0, 0))
             .ToArray();
         void Dwell(int slot)
@@ -133,6 +235,39 @@ static class AutoCastChecks
             "StopAll clears arming and dwell"
         );
         Check(control.TakeReadySkill(ready, true) is null, "Stopped slots never cast");
+        Dwell(SkillSlots.Potion);
+        Leave();
+        Check(
+            control.IsEnabled(SkillSlots.Potion)
+                && control.EnabledSnapshot().Take(6).All(value => !value),
+            "Potion's three-second dwell arms only the potion"
+        );
+        var potionUnknown = ready.ToArray();
+        potionUnknown[SkillSlots.Potion] = new("D", 0, 0, IsUnknown: true);
+        Check(
+            control.TakeReadySkill(potionUnknown, true) is null,
+            "Unknown potion readiness cannot inject D"
+        );
+        potionUnknown[SkillSlots.Potion] = new("D", 10, .3);
+        Check(
+            control.TakeReadySkill(potionUnknown, true) is null,
+            "A cooling potion cannot inject D"
+        );
+        Check(
+            control.TakeReadySkill(ready, true) == SkillSlots.Potion,
+            "A confirmed-ready armed potion is dispatched"
+        );
+        control.StopAll();
+        Check(!control.IsEnabled(SkillSlots.Potion), "StopAll also disarms the potion");
+        var oldSettings = new Settings { Skills = SkillSettings.Defaults().Take(6).ToList() };
+        oldSettings.Skills[0].Key = "Q";
+        HudLayout.Upgrade(oldSettings);
+        Check(
+            oldSettings.Skills.Count == SkillSlots.Count
+                && oldSettings.Skills[SkillSlots.Potion].Key == "D"
+                && oldSettings.Skills[0].Key == "Q",
+            "Existing six-slot settings gain potion D without replacing skill keys"
+        );
         return count;
     }
 }

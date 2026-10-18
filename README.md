@@ -2,11 +2,11 @@
 
 Windows 10/11 x64 desktop overlay for Diablo III, built with .NET 8 and WPF.
 
-**[Download the v1.1.1 Windows installer](https://github.com/Christopher-Kokkinos/D3_Vision/releases/tag/v1.1.1)**
+**[Download the v1.1.2 Windows installer](https://github.com/Christopher-Kokkinos/D3_Vision/releases/tag/v1.1.2)**
 
 **Stricken remains experimental:** a controlled solo capture validated the observed proc estimate rising from 0 to 16 and clearing after the guardian disappeared. This is not an exact enemy stack count. See [live validation details](docs/Portrait-buff-validation.md).
 
-Close D3Vision before installing or updating. See [release notes for v1.1.1 and v1.1.0](CHANGELOG.md). The installer includes the .NET runtime,
+Close D3Vision before installing or updating. See [release notes and version history](CHANGELOG.md). The installer includes the .NET runtime,
 adds Start-menu shortcuts, and preserves settings and history. It is unsigned;
 Windows may display an unknown-publisher warning. See the feature notes and validation
 limits below before using the experimental readers and input automation.
@@ -15,7 +15,7 @@ Experimental nearby map: enable **NEARBY MAP (EXPERIMENTAL)** under F12 settings
 
 Minimap markers: nearby champions are blue, rare elites yellow, rare minions amber, uniques purple and bosses orange-red. Ground legendaries use orange stars and set items green stars. Ancients have larger, brighter stars with a halo; Primals use a red circled pentagram. Closely stacked loot spreads slightly with leader lines to the actual drop positions. F12 has separate elite/loot toggles and live reader status. Markers refresh at 5 Hz and are limited to actors currently available to the client. Normal/Ancient set items and normal legendary loot were checked live; a live blue champion was verified after correcting the GameBalance-type filter; live Primal validation remains pending. Marker styling can be reviewed with `dotnet run --project tests/D3Vision.Tests -c Release -- --marker-preview` (writes `artifacts/map-marker-preview.png`).
 
-Kadala hover buying: in F12 settings enable **Enable Kadala multi-buy**, Apply and save, then use F11 to lock the overlay/click-through. Choose **Hover for 3 seconds** or **Single left-click** under Kadala activation. Open Kadala with inventory visible, then hover over the same Mystery offer for three seconds or left-click it once. Keep the pointer on the offer in either mode. Click mode listens only to physical left-button releases, so generated purchase inputs cannot rearm the macro. Buying stops when the cursor leaves, game loses focus, settings open, overlay is hidden/unlocked, or a purchase adds no inventory item within two seconds (full inventory, insufficient shards or unavailable offer). Move off and hover again to rearm hover mode; click mode permits a new deliberate left-click after completion. Purchases are confirmed through the read-only backpack count and dispatched one at a time as balanced foreground right-clicks; the mouse never moves. Kadala mode pauses skill auto-cast. English shop text and the standard height-scaled Kadala panel are required; unrecognized UI sends no input. Detection and inventory reads were checked against the user's open shop; no live purchase was issued during validation. Hover, rejection-stop and dispatch behavior have synthetic coverage.
+Kadala hover buying: in F12 settings enable **Enable Kadala multi-buy**, Apply and save, then use F11 to lock the overlay/click-through. Choose **Hover for 3 seconds** or **Single left-click** under Kadala activation. Open Kadala with inventory visible, then hover over the same Mystery offer for three seconds or left-click it once. Keep the pointer on the offer in either mode. Click mode listens only to physical left-button releases, so generated purchase inputs cannot rearm the macro. Buying stops when the cursor leaves, game loses focus, settings open, overlay is hidden/unlocked, or a purchase adds no inventory item within two seconds (full inventory, insufficient shards or unavailable offer). Move off and hover again to rearm hover mode; click mode permits a new deliberate left-click after completion. Purchases use short bursts of up to four balanced foreground window-message right-clicks, followed by read-only local-backpack progress checks; the mouse never moves. A full inventory or insufficient shards can reject the remaining clicks in a burst. Kadala mode pauses skill auto-cast. English shop text and the standard height-scaled Kadala panel are required; unrecognized UI sends no input. Detection and inventory reads were checked against the user's open shop; no live purchase was issued during validation. Hover, rejection-stop and dispatch behavior have synthetic coverage.
 
 Myriam build guide: enabled by default under F12. Opening the English Enchant screen automatically shows a centred gear/primary-affix reference for the detected local hero class. The source is Blizzard's EU seasonal normal solo-GR board; the current season is discovered from official navigation. If rank one has no accessible profile, the highest accessible profile among the first 20 entries is used and its actual rank is prominently displayed (this fallback is configurable). Empty/unpublished gear slots and unavailable affixes are labelled. The shown affixes are references from published current gear, not an optimizer or the historical loadout at the ranked clear. All 13 gear slots fit in a responsive inventory-style layout without scrolling or unlocking the overlay; closing Enchant, losing game focus, opening settings or hiding the overlay dismisses the panel. Retrieval runs asynchronously, reuses the existing OCR feed, checks profile/tooltip hero identity and caps HTML size. Per-class JSON caches refresh every 15 minutes; offline references up to 24 hours old carry an offline label. No browser, embedded HTML, API credentials or additional capture session is required. See [current EU rankings](https://eu.diablo3.blizzard.com/en-us/rankings/season/40/rift-barbarian). A rendered live-data layout check is saved locally as `artifacts/myriam-guide-preview.png`.
 
@@ -44,7 +44,7 @@ Windows OCR is officially supported for desktop applications **with package iden
 
 ### Windows installer
 
-The standard installer is `artifacts/installers/D3Vision-Setup-1.1.1-win-x64.exe`.
+The standard installer is `artifacts/installers/D3Vision-Setup-1.1.2-win-x64.exe`.
 Close the overlay before running it. It supports Intel/AMD x64 Windows 10
 version 2004 (build 19041) or newer and Windows 11, includes the .NET 8 Desktop
 Runtime, and installs for the current user without elevation. Start-menu shortcuts,
@@ -241,3 +241,7 @@ tests/
 - [WPF hardware rendering](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/advanced/optimizing-performance-taking-advantage-of-hardware)
 - [RegisterHotKey and the reserved F12 key](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey)
 - [Window capture exclusion](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowdisplayaffinity)
+
+### Rapid inventory actions
+
+DROP and Blacksmith salvage retain their three-second hover activation. They now use balanced client-coordinate window messages without moving the cursor or holding physical mouse buttons. Each item identity is checked before dispatch and removal is acknowledged before continuing; screen OCR is refreshed every four completed items and for salvage confirmations. Selective salvage preserves Ancient/Primal items and skips unknown ranks. Salvage confirmation is sent only after recognising the expected salvage prompt. Escape, focus loss or a changed inventory stop the operation. These are fast sequential actions, not an atomic game command; dialog handling and game processing still affect completion time. Live destructive operations were not performed during development.

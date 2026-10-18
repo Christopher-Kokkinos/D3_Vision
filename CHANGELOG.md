@@ -1,5 +1,16 @@
 # Release notes
 
+## v1.1.2 - autocast fixes and rapid inventory actions (2026-10-18)
+
+- Fixed skill-dot hover activation, countdown feedback, dark-icon reading and keyboard input; added potion D autocast.
+- Reduced Myriam guide obstruction and added F9 guide visibility toggle.
+- Added opt-in three-second-hover DROP and Blacksmith salvage, including Ancient/Primal-preserving selective salvage.
+- Added rapid inventory clicks and burst Kadala multi-buy, with foreground, identity and progress checks.
+- Improved capture/OCR scheduling and inventory capture ownership.
+- 461 automated checks passed. Rapid live destructive actions remain unverified; operations are sequential rather than atomic.
+
+[Full v1.1.2 notes](docs/releases/v1.1.2.md) | [GitHub release](https://github.com/Christopher-Kokkinos/D3_Vision/releases/tag/v1.1.2)
+
 ## v1.1.1 - solo Stricken validation and clearer readouts
 
 - Confirmed the observed proc estimate rising 0 to 16 in a controlled solo guardian

@@ -129,6 +129,8 @@ public sealed class Settings
     public bool MyriamAllowFallback { get; set; } = true;
     public KadalaActivationMode KadalaMode { get; set; } = KadalaActivationMode.Hover;
     public bool KadalaHoverBuy { get; set; }
+    public bool AutoSalvageEnabled { get; set; }
+    public bool DropAllEnabled { get; set; }
     public bool ShowEliteMarkers { get; set; } = true;
     public bool ShowLootMarkers { get; set; } = true;
     public bool AlignMapToMinimap { get; set; } = true;

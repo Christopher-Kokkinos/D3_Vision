@@ -20,7 +20,7 @@ internal static class PlayerPositionReader
         HeroIdentity.FromActorSno(BitConverter.ToInt32(ReadActor(m, moduleBase, snapshot), 0x90))
         ?? throw new InvalidOperationException("The local hero class could not be identified.");
 
-    private static byte[] ReadActor(IGameMemoryReader m, nint moduleBase, RiftMapSnapshot snapshot)
+    internal static byte[] ReadActor(IGameMemoryReader m, nint moduleBase, RiftMapSnapshot snapshot)
     {
         var root = m.Pointer(moduleBase + 0x16F5250);
         var player = m.Pointer(root + 0xB28);

@@ -12,6 +12,7 @@ public sealed class SettingsWindow : Window
 {
     public SettingsWindow(MainViewModel vm, Action apply, Action quit, Action? calibrate = null)
     {
+        DataContext = vm;
         Topmost = true;
         Title = "D3Vision • Settings";
         Width = 680;
@@ -96,8 +97,19 @@ public sealed class SettingsWindow : Window
             }
         );
         Label("Skill cooldown source");
+        var autoCastStatus = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 8),
+        };
+        autoCastStatus.SetBinding(TextBlock.TextProperty, new Binding(nameof(vm.AutoCastStatus)));
+        panel.Children.Add(autoCastStatus);
+        if (vm.Settings.Skills.Any(skill => skill.Calibration is null))
+            Label(
+                "Setup needed: some skill icons are not calibrated. Use 'Calibrate ready skill icons...' below to place their red/green auto-cast dots."
+            );
         Label(
-            "Auto-cast: with VisualRead active and the overlay locked, hover a calibrated skill or its badge for 3 seconds to toggle. Move away before casting resumes. AUTO marks armed slots. Unknown/cooling skills are skipped. Leaving the game, hiding/editing the overlay, opening settings, or pressing Escape/Enter/menu keys disarms every slot. Mouse skills cast at the current cursor; toggles are not saved."
+            "Auto-cast: with VisualRead active and the overlay locked, hover the round dot in the top-right corner of a calibrated skill for 3 seconds to toggle. A visible countdown shows the remaining hover time. Red means inactive; green means armed. Move off the dot before casting resumes. Unknown/cooling skills are skipped. Leaving the game, hiding/editing the overlay, focusing settings, or pressing Escape/Enter/menu keys disarms every slot. Mouse skills cast at the current cursor; toggles are not saved."
         );
         panel.Children.Add(
             new Button
@@ -118,7 +130,7 @@ public sealed class SettingsWindow : Window
             }
         );
         Label(
-            "VisualRead reads the shaded sweep from calibrated skill icons. Wait until all selected skills are ready, then calibrate their artwork. The 3-second hover targets only these boxes, never the movable timer badges. Recalibrate after changing capture mode, monitor, aspect ratio or UI scale. Inferred seconds are marked ~; ? means unknown or unreadable. Exact live seconds are not available from a shaded sweep alone."
+            "VisualRead reads the shaded sweep from calibrated skill icons. Use game-window capture for reliable auto-cast; if a green slot reports an unreadable icon in whole-screen mode, turn off Capture whole selected monitor and recalibrate. Wait until all selected skills are ready, then calibrate their artwork. Calibration is required before any dots appear. The 3-second hover targets only the top-right dots, never the rest of the icon or movable timer badges. Recalibrate after changing capture mode, monitor, aspect ratio or UI scale. Inferred seconds are marked ~; ? means unknown or unreadable. Exact live seconds are not available from a shaded sweep alone."
         );
         panel.Children.Add(
             new Button
@@ -129,6 +141,30 @@ public sealed class SettingsWindow : Window
                 Command = new Command(() => calibrate?.Invoke()),
             }
         );
+        Label("Skill keys (match Diablo III)");
+        Label(
+            "The first four slots accept one letter or number each, such as Q W E R or 1 2 3 4. Auto-cast sends these bindings. LMB / RMB stay mouse buttons. The seventh slot is your potion (D by default)."
+        );
+        var bindings = new UniformGrid { Rows = 1, Columns = 5 };
+        foreach (var skill in vm.Settings.Skills.Where((_, slot) => SkillSlots.IsKeyboard(slot)))
+        {
+            var key = new TextBox
+            {
+                DataContext = skill,
+                Margin = new Thickness(4),
+                MaxLength = 1,
+            };
+            key.SetBinding(
+                TextBox.TextProperty,
+                new Binding(nameof(skill.Key))
+                {
+                    Mode = BindingMode.TwoWay,
+                    UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged,
+                }
+            );
+            bindings.Children.Add(key);
+        }
+        panel.Children.Add(bindings);
         Label("Manual fallback (InputEstimate only)");
         var track = new CheckBox
         {
@@ -141,8 +177,8 @@ public sealed class SettingsWindow : Window
         Label(
             "Enter each skill's effective cooldown in seconds. 0 hides its timer. Input does not confirm a cast; resets and cooldown reductions require manual adjustment."
         );
-        var skillRow = new UniformGrid { Rows = 1, Columns = 6 };
-        foreach (var skill in vm.Settings.Skills.Take(6))
+        var skillRow = new UniformGrid { Rows = 1, Columns = SkillSlots.Count };
+        foreach (var skill in vm.Settings.Skills.Take(SkillSlots.Count))
         {
             var stack = new StackPanel { Margin = new Thickness(4) };
             stack.Children.Add(new TextBlock { Text = skill.Key, Foreground = Brushes.White });
@@ -272,8 +308,36 @@ public sealed class SettingsWindow : Window
         );
         panel.Children.Add(fallback);
         Label(
-            "Detects your current hero class. Shows current equipped gear and primary-affix enchant references from Blizzard's EU seasonal normal solo-GR leaderboard. Actual rank and fetch time remain visible. Cached references refresh every 15 minutes; offline copies are labelled. All gear slots appear in an inventory-style layout without scrolling. English Enchant text is required."
+            "Detects your current hero class. Shows current equipped gear and primary-affix enchant references from Blizzard's EU seasonal normal solo-GR leaderboard. Actual rank and fetch time remain visible. Cached references refresh every 15 minutes; offline copies are labelled. All gear slots appear in a compact inventory-style layout without scrolling. Press F9 in the game to hide/show only this guide; your choice lasts until D3Vision restarts. The guide appears only with the overlay locked/click-through (F11). English Enchant text is required."
         );
+        Label("Blacksmith salvage and inventory drop");
+        void InventoryToggle(string caption, string property)
+        {
+            var toggle = new CheckBox { Content = caption, Margin = new Thickness(0, 5, 0, 5) };
+            toggle.SetBinding(
+                CheckBox.IsCheckedProperty,
+                new Binding(property) { Source = vm.Settings, Mode = BindingMode.TwoWay }
+            );
+            panel.Children.Add(toggle);
+        }
+        InventoryToggle(
+            "Enable Blacksmith auto-salvage controls",
+            nameof(Settings.AutoSalvageEnabled)
+        );
+        InventoryToggle(
+            "Enable DROP ALL hover above health globe (includes Ancient / Primal)",
+            nameof(Settings.DropAllEnabled)
+        );
+        Label(
+            "Hover a control for 3 seconds. SALVAGE ALL includes Ancient/Primal equipment; KEEP ANCIENT / PRIMAL preserves both and skips unknown ranks. Only your backpack is processed; equipped gear and stash are excluded. Gems/materials/unknown equipment are skipped by salvage. DROP opens the backpack using I if needed, then drags backpack items onto the ground without confirmation. Close vendors/stash first. Bound items or unrecognised dialogs stop the operation. Escape, a physical click, F10/F11/F12, settings or loss of game focus stops. Requires the standard desktop HUD and English UI. Move the pointer off a control before hovering again."
+        );
+        var inventoryStatus = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 8),
+        };
+        inventoryStatus.SetBinding(TextBlock.TextProperty, new Binding(nameof(vm.InventoryStatus)));
+        panel.Children.Add(inventoryStatus);
         Label("Kadala multi-buy");
         var kadala = new CheckBox
         {
@@ -303,7 +367,7 @@ public sealed class SettingsWindow : Window
         );
 
         Label(
-            "Requires English shop text and locked/click-through overlay (F11). Choose a three-second hover or one physical left-click on the offer to start. Keep the mouse on the offer while buying. Move off, switch windows, or press F10/F11/F12 to stop. Each purchase waits for an inventory item; buying stops when full, out of shards, or rejected. Kadala mode pauses skill auto-cast."
+            "Requires English shop text and locked/click-through overlay (F11). Choose a three-second hover or one physical left-click on the offer to start. Keep the mouse on the offer while buying. Move off, switch windows, or press F10/F11/F12 to stop. Each purchase waits for an inventory item; buying stops when full, out of shards, or rejected. An active Kadala interaction pauses skill auto-cast."
         );
         var kadalaStatus = new TextBlock { DataContext = vm, TextWrapping = TextWrapping.Wrap };
         kadalaStatus.SetBinding(TextBlock.TextProperty, new Binding(nameof(vm.KadalaStatus)));
@@ -439,6 +503,17 @@ public sealed class SettingsWindow : Window
                 )
                 {
                     MessageBox.Show("Enter skill cooldowns between 0 and 3600 seconds.");
+                    return;
+                }
+                if (
+                    vm
+                        .Settings.Skills.Where((_, slot) => SkillSlots.IsKeyboard(slot))
+                        .Any(skill => !SkillBindings.TryKey(skill.Key, out _))
+                )
+                {
+                    MessageBox.Show(
+                        "Use one letter or number for each keyboard skill and the potion."
+                    );
                     return;
                 }
                 foreach (var w in vm.Settings.Widgets)

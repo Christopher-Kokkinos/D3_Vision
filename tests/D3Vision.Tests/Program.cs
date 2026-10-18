@@ -89,8 +89,13 @@ timers.Start(0, configured);
 timers.Reset();
 Check(timers.Remaining(0) == 0, "Skill countdown reset");
 int visualChecks = VisualCooldownChecks.Run();
-int autoCastChecks = AutoCastChecks.Run();
-int skillInputChecks = await SkillInputChecks.RunAsync();
+int autoCastChecks =
+    AutoCastChecks.Run() + AutoCastVisualChecks.Run() + await InventoryAutomationChecks.RunAsync();
+int skillInputChecks =
+    await SkillInputChecks.RunAsync()
+    + await CaptureCadenceChecks.RunAsync()
+    + await InventoryPerformanceChecks.RunAsync()
+    + RapidInventoryChecks.Run();
 int mapChecks =
     RiftMapChecks.Run()
     + MapMarkerChecks.Run()

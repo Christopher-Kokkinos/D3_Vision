@@ -15,7 +15,7 @@ public sealed class SkillCalibrationWindow : Window
     public SkillCalibrationWindow(
         CaptureFrame frame,
         IReadOnlyList<SkillSettings> skills,
-        Action<IReadOnlyList<SkillCalibration?>> save
+        Func<IReadOnlyList<SkillCalibration?>, Task> save
     )
     {
         Title = "D3Vision • Calibrate ready skill icons";
@@ -28,7 +28,7 @@ public sealed class SkillCalibrationWindow : Window
         var instructions = new TextBlock
         {
             Text =
-                "Use an image where the skills are ready. Choose a slot, then drag a box around its square artwork only (exclude border/key labels). No whole screenshot is saved. Save when finished; repeat calibration after changing skills, UI scale or capture mode.",
+                "Use an image where the skills are ready. Choose a slot, then drag a box around its square artwork only (exclude border/key labels). Each successful selection is saved immediately; slots advance automatically. No whole screenshot is saved. Repeat calibration after changing skills, UI scale or capture mode.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 8),
         };
@@ -44,7 +44,10 @@ public sealed class SkillCalibrationWindow : Window
         var picker = new ComboBox
         {
             Width = 130,
-            ItemsSource = skills.Take(6).Select((s, i) => $"Slot {i + 1} • {s.Key}").ToArray(),
+            ItemsSource = skills
+                .Take(SkillSlots.Count)
+                .Select((s, i) => $"Slot {i + 1} • {s.Key}")
+                .ToArray(),
             SelectedIndex = 0,
         };
         toolbar.Children.Add(picker);
@@ -54,7 +57,7 @@ public sealed class SkillCalibrationWindow : Window
             Text = "Select an icon in the captured image.",
         };
         toolbar.Children.Add(status);
-        var calibrations = skills.Take(6).Select(s => s.Calibration).ToArray();
+        var calibrations = skills.Take(SkillSlots.Count).Select(s => s.Calibration).ToArray();
         var footer = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -70,15 +73,23 @@ public sealed class SkillCalibrationWindow : Window
         };
         var commit = new Button
         {
-            Content = "Save calibration",
+            Content = "Done",
             Margin = new Thickness(4),
             Padding = new Thickness(10),
         };
         footer.Children.Add(clear);
         footer.Children.Add(commit);
+        bool saving = false;
         commit.Click += (_, _) =>
         {
-            save(calibrations);
+            if (saving)
+                return;
+            if (!calibrations.Any(c => c is not null))
+            {
+                status.Text =
+                    "Nothing has been calibrated. Drag a box around at least one ready icon.";
+                return;
+            }
             Close();
         };
 
@@ -108,8 +119,8 @@ public sealed class SkillCalibrationWindow : Window
                 IsHitTestVisible = false,
             }
         );
-        var outlines = new Rectangle[6];
-        for (int i = 0; i < 6; i++)
+        var outlines = new Rectangle[SkillSlots.Count];
+        for (int i = 0; i < SkillSlots.Count; i++)
         {
             outlines[i] = new Rectangle
             {
@@ -121,7 +132,7 @@ public sealed class SkillCalibrationWindow : Window
         }
         void Redraw()
         {
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < SkillSlots.Count; i++)
             {
                 var c = calibrations[i];
                 var r = outlines[i];
@@ -135,10 +146,13 @@ public sealed class SkillCalibrationWindow : Window
                 r.Stroke = i == picker.SelectedIndex ? Brushes.Gold : Brushes.LimeGreen;
             }
         }
-        clear.Click += (_, _) =>
+        clear.Click += async (_, _) =>
         {
+            if (saving)
+                return;
             calibrations[picker.SelectedIndex] = null;
             Redraw();
+            await PersistAsync();
         };
         picker.SelectionChanged += (_, _) => Redraw();
         var selection = new Rectangle
@@ -154,6 +168,8 @@ public sealed class SkillCalibrationWindow : Window
         bool dragging = false;
         canvas.MouseLeftButtonDown += (_, e) =>
         {
+            if (saving)
+                return;
             start = e.GetPosition(canvas);
             dragging = true;
             canvas.CaptureMouse();
@@ -180,7 +196,7 @@ public sealed class SkillCalibrationWindow : Window
             Canvas.SetLeft(selection, rect.X);
             Canvas.SetTop(selection, rect.Y);
         };
-        canvas.MouseLeftButtonUp += (_, e) =>
+        canvas.MouseLeftButtonUp += async (_, e) =>
         {
             if (!dragging)
                 return;
@@ -197,15 +213,40 @@ public sealed class SkillCalibrationWindow : Window
                     rect.Width / frame.Width,
                     rect.Height / frame.Height
                 );
-                status.Text =
-                    $"Slot {picker.SelectedIndex + 1} calibrated. Select the next ready icon.";
+                int completedSlot = picker.SelectedIndex;
                 Redraw();
+                await PersistAsync();
+                int next = Array.FindIndex(calibrations.ToArray(), c => c is null);
+                if (next >= 0)
+                    picker.SelectedIndex = next;
+                else
+                    picker.SelectedIndex = Math.Min(SkillSlots.Count - 1, completedSlot + 1);
             }
             catch (ArgumentException ex)
             {
                 status.Text = ex.Message;
             }
         };
+        async Task PersistAsync()
+        {
+            saving = true;
+            canvas.IsEnabled = picker.IsEnabled = clear.IsEnabled = commit.IsEnabled = false;
+            try
+            {
+                await save(calibrations.ToArray());
+                status.Text =
+                    $"Saved {calibrations.Count(c => c is not null)}/7 skill/potion icons. Red dots appear in game after closing Settings.";
+            }
+            catch (Exception ex)
+            {
+                status.Text = "Calibration could not be saved: " + ex.Message;
+            }
+            finally
+            {
+                saving = false;
+                canvas.IsEnabled = picker.IsEnabled = clear.IsEnabled = commit.IsEnabled = true;
+            }
+        }
         root.Children.Add(new Viewbox { Child = canvas, Stretch = Stretch.Uniform });
         Redraw();
     }

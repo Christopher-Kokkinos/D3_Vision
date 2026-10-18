@@ -59,7 +59,7 @@ public sealed class MyriamGuideView : Border
         content.Children.Clear();
         var heading = new StackPanel();
         content.Children.Add(heading);
-        heading.Children.Add(Text("MYRIAM - EQUIPMENT & ENCHANT REFERENCE", 15, Brushes.Wheat));
+        heading.Children.Add(Text("MYRIAM - GEAR REFERENCE | F9: HIDE / SHOW", 15, Brushes.Wheat));
         if (build is null)
         {
             heading.Children.Add(Text(message, 13, Brushes.WhiteSmoke));
@@ -143,7 +143,7 @@ public sealed class MyriamGuideView : Border
         Grid.SetRow(board, 1);
         content.Children.Add(board);
         var footer = Text(
-            "Primary affixes from current published gear; compare the same slot. Not an optimal-roll calculation or the loadout at the ranked clear. All slots fit without scrolling. Close Enchant to dismiss.",
+            "Primary affixes from current published gear; compare the same slot. Not an optimal-roll calculation or the loadout at the ranked clear. All slots fit without scrolling. F9 hides/shows this guide without closing Enchant.",
             10,
             Brushes.Silver
         );

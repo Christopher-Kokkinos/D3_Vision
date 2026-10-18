@@ -15,6 +15,7 @@ public sealed class DiabloMapReader : IMapDataSource
     private const int MaxSlots = 8192;
 
     private readonly object sync = new();
+    private readonly Dictionary<int, string> inventoryDefinitionNames = [];
     private int checkedProcessId;
     private long checkedStartTime;
 
@@ -83,6 +84,28 @@ public sealed class DiabloMapReader : IMapDataSource
         }
     }
 
+    public IReadOnlyList<BackpackItem> ReadBackpack(RiftMapSnapshot snapshot)
+    {
+        lock (sync)
+        {
+            using var process = Process.GetProcessById(snapshot.ProcessId);
+            if (
+                checkedProcessId != process.Id
+                || checkedStartTime != process.StartTime.ToUniversalTime().Ticks
+            )
+                throw new InvalidOperationException(
+                    "Inventory sample belongs to another game session."
+                );
+            using var memory = new ReadOnlyProcess(process.Id);
+            return InventoryReader.Items(
+                memory,
+                process.MainModule!.BaseAddress,
+                snapshot,
+                inventoryDefinitionNames
+            );
+        }
+    }
+
     public int ReadInventoryCount(RiftMapSnapshot snapshot)
     {
         lock (sync)
@@ -135,6 +158,7 @@ public sealed class DiabloMapReader : IMapDataSource
             using var file = File.OpenRead(module.FileName);
             if (Convert.ToHexString(SHA256.HashData(file)) != SupportedHash)
                 throw new InvalidOperationException("Map reader does not support this game build.");
+            inventoryDefinitionNames.Clear();
             checkedProcessId = process.Id;
             checkedStartTime = startTime;
         }

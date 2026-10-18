@@ -49,6 +49,7 @@ public sealed class KeyboardHotkeys : IDisposable
             // Menu/chat keys stop auto-cast, but still reach the game normally.
             if (
                 (message == 0x100 || message == 0x104)
+                && (Marshal.ReadInt32(data, 8) & 0x10) == 0
                 && key
                     is 0x0D
                         or 0x1B
@@ -69,6 +70,15 @@ public sealed class KeyboardHotkeys : IDisposable
                 if (message == 0x101)
                     pressed.Remove(key);
                 // Skill inputs are observed and always pass through to the game.
+            }
+            // F9 only controls the guide while Diablo is foreground; other apps keep F9.
+            if (key == 0x78 && GameInput.IsDiabloForeground())
+            {
+                if ((message == 0x100 || message == 0x104) && pressed.Add(key))
+                    dispatch(4);
+                if (message == 0x101 || message == 0x105)
+                    pressed.Remove(key);
+                return 1;
             }
             if (key is >= 0x79 and <= 0x7B)
             {

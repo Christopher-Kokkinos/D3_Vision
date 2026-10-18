@@ -40,7 +40,7 @@ public static class GameInput
         return rect.Right > 0 && rect.Bottom > 0;
     }
 
-    public static bool TryGetCursor(out Native.Point point) => GetCursorPos(out point);
+    public static bool TryGetCursor(out Native.Point point) => GetPhysicalCursorPos(out point);
 
     public static bool IsDiabloForeground()
     {
@@ -65,7 +65,7 @@ public static class GameInput
     static extern nint GetForegroundWindow();
 
     [DllImport("user32.dll")]
-    static extern bool GetCursorPos(out Native.Point point);
+    static extern bool GetPhysicalCursorPos(out Native.Point point);
 
     [DllImport("user32.dll")]
     static extern bool GetWindowRect(nint hwnd, out Native.Rect rect);

@@ -27,48 +27,94 @@ public sealed partial class TrackingService(IScreenCapture capture, IOcrService 
     )
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
+        using var ocrStop = CancellationTokenSource.CreateLinkedTokenSource(token);
+        Task<string>? pendingOcr = null;
         var next = DateTime.MinValue;
-        while (await timer.WaitForNextTickAsync(token))
+        try
         {
-            try
+            while (await timer.WaitForNextTickAsync(token))
             {
-                var setting = options();
-                var frame = capture.Capture(setting.Whole, setting.Monitor);
-                if (frame is null)
+                if (pendingOcr is { IsCompleted: true })
                 {
-                    CaptureAreaRead?.Invoke(null);
-                    Report("Waiting for Diablo III (windowed/borderless)");
-                    continue;
+                    var completed = pendingOcr;
+                    pendingOcr = null;
+                    try
+                    {
+                        TextRecognized?.Invoke(await completed);
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Report("OCR unavailable: " + ex.Message);
+                    }
                 }
-                CaptureAreaRead?.Invoke(frame.Area);
-                if (cooldownRegions is not null)
+                try
                 {
-                    var regions = cooldownRegions();
-                    if (regions.Count > 0)
-                        CooldownsRead?.Invoke(
-                            regions
-                                .Take(6)
-                                .Select((region, slot) => sweepReader.Read(frame, slot, region))
-                                .ToArray()
-                        );
+                    var setting = options();
+                    var frame = capture.Capture(setting.Whole, setting.Monitor);
+                    if (frame is null)
+                    {
+                        // Keep the last coordinates until their freshness deadline. A single
+                        // empty frame must not make the skill dots blink or disarm every slot.
+                        Report("Waiting for Diablo III (windowed/borderless)");
+                        continue;
+                    }
+                    CaptureAreaRead?.Invoke(frame.Area);
+                    if (cooldownRegions is not null)
+                    {
+                        var regions = cooldownRegions();
+                        if (regions.Count > 0)
+                            CooldownsRead?.Invoke(
+                                regions
+                                    .Take(SkillSlots.Count)
+                                    .Select((region, slot) => sweepReader.Read(frame, slot, region))
+                                    .ToArray()
+                            );
+                    }
+                    Report("Capture active - 10 FPS / OCR throttled");
+                    if (pendingOcr is not null || DateTime.UtcNow < next)
+                        continue;
+                    next = DateTime.UtcNow.AddMilliseconds(Math.Max(500, setting.Interval));
+                    // Capture reuses its pixel buffer. OCR owns a copy and has at most one
+                    // request in flight, so slow text recognition cannot starve cooldown reads.
+                    var copy = frame with
+                    {
+                        Bgra = frame.Bgra.ToArray(),
+                    };
+                    pendingOcr = Task.Run(
+                        () => ocr.RecognizeAsync(copy, ocrStop.Token),
+                        ocrStop.Token
+                    );
                 }
-                if (DateTime.UtcNow < next)
-                    continue;
-                next = DateTime.UtcNow.AddMilliseconds(Math.Max(500, setting.Interval));
-                var text = await ocr.RecognizeAsync(frame, token);
-                TextRecognized?.Invoke(text);
-                Report("Capture active • 10 FPS / OCR throttled");
+                catch (OperationCanceledException) when (token.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Report(ex.Message);
+                    capture.Dispose();
+                    await Task.Delay(TimeSpan.FromSeconds(5), token);
+                }
             }
-            catch (OperationCanceledException) when (token.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                Report(ex.Message);
-                capture.Dispose();
-                await Task.Delay(TimeSpan.FromSeconds(5), token);
-            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        finally
+        {
+            ocrStop.Cancel();
+            if (pendingOcr is not null)
+                try
+                {
+                    await pendingOcr;
+                }
+                catch (OperationCanceledException) when (ocrStop.IsCancellationRequested) { }
+                catch (Exception ex)
+                {
+                    Report("OCR unavailable: " + ex.Message);
+                }
         }
     }
 
